@@ -1,0 +1,73 @@
+PROMPT PARA IMPLEMENTAR UM JOGO INSPIRADO EM ZOMBIE CAFÉ
+
+Use o documento “Mecânicas para um jogo inspirado em Zombie Café” como especificação funcional. Quero reproduzir a experiência do Zombie Café clássico internacional: administrar um café, infectar clientes para formar a equipe, equilibrar trabalho e descanso, invadir concorrentes e trazer receitas para melhorar o próprio negócio.
+
+CONTEXTO E OBJETIVO
+
+O jogo será executado no navegador. A simulação avança somente durante a sessão ativa. Ao encerrar, desconectar ou suspender a sessão, salve e pause o estado; ao retornar, restaure sem calcular progresso ou incidentes pelo período de ausência. Trabalhe sobre o projeto existente. Primeiro leia as instruções do repositório e examine somente os módulos relevantes para entender o que já existe. Preserve sistemas funcionais e reutilize o renderer, assets, controles e persistência disponíveis. Não recomece o projeto sem uma necessidade concreta.
+
+Quero implementação funcional, não apenas um plano, uma maquete ou uma lista de botões. A conexão entre os sistemas é o objetivo: comida produzida abastece clientes; clientes geram recursos e candidatos à infecção; funcionários trabalham e se cansam; invasões usam essa mesma equipe; o saque amplia o cardápio e a progressão.
+
+Use as referências visuais fornecidas para manter câmera isométrica fixa e afastada, formas simples, personagens pequenos, leitura clara e humor de terror cartunesco. Não aumente o detalhamento visual a ponto de comprometer a leitura ou o desempenho. Personagens base têm mãos vazias; pratos e utensílios pertencem às animações de tarefa.
+
+FIDELIDADE E DECISÕES
+
+Separe claramente mecânicas documentadas do original, diferenças entre versões e decisões próprias. Não trate conteúdo japonês, mods Revival, gacha, fusão, clãs ou maestria de receitas como parte obrigatória do núcleo clássico. Não invente percentuais históricos, tempo de reanimação ou fórmula de gorjeta.
+
+Onde houver lacunas, use uma configuração explícita e registre a decisão. Para começar, adote vitória contra o chefe como condição do saque principal; mantenha roubo antes da vitória como opção de compatibilidade desativada. Guardar um funcionário na reserva congela sua energia; descanso acontece em estado próprio. O chef principal não sofre desgaste normal de trabalho no café. Esses comportamentos devem permanecer configuráveis quando houver diferenças de edição.
+
+SISTEMAS OBRIGATÓRIOS
+
+1. Café em grade com posicionamento, rotação, ocupação, pontos de interação, expansão e validação de caminhos. Mesas e cadeiras precisam formar assentos utilizáveis. Distância até balcão e pia deve afetar o tempo de serviço.
+
+2. Clientes com ciclo completo: entrar, reservar lugar, caminhar, sentar, esperar, comer, pagar, avaliar e sair. Implementar falta de lugar, falta de comida, paciência e fuga por pânico. Não criar pedidos individuais complexos sem necessidade.
+
+3. Atendimento e limpeza por tarefas: reservar uma porção, buscá-la, entregá-la, recolher louça, levar à pia e liberar mesa. Impedir duas reservas para o mesmo recurso. Dar destino explícito a comida em trânsito quando houver cancelamento.
+
+4. Cozinha em lotes, com custo, duração, XP, quantidade, preço de venda, nível e equipamento exigido. Exigir cozinheiro atribuído. Implementar pausa, conclusão, transferência e deterioração. Não transformar produção automaticamente em dinheiro.
+
+5. Balcões com porções finitas, geladeira com lotes e livro com conhecimento permanente. Conhecer uma receita, possuir comida e ter requisitos para prepará-la são estados distintos. Definir e mostrar se estudar um lote consome a comida.
+
+6. Infecção de clientes com inspeção prévia, custo, limite de equipe e transformação visual. A operação deve cobrar e criar exatamente um funcionário. Tipos de personagem e instâncias recrutadas devem ser separados.
+
+7. Funcionários com energia, velocidade, gorjetas, força, desgaste, recuperação e tolerância à fome. Criar perfis úteis em situações diferentes. A mesma unidade deve escolher entre cozinhar, atender, descansar, ficar na reserva ou invadir.
+
+8. Energia compartilhada entre trabalho e resistência em combate. Implementar alertas, descanso, distração e risco de ataque a clientes em baixa energia. O incidente deve causar fuga, perda de pagamentos pendentes e queda de reputação. Não atacar a cada frame nem recuperar energia infinita.
+
+9. Chef principal, XP individual de zumbis, nível do café, limite ativo e reserva. Guardar preserva identidade e progresso. Derrota não elimina definitivamente um personagem.
+
+10. Economia com dinheiro e Toxin. Toda entrada ou gasto precisa ter um evento identificável. Gorjeta é separada do preço da refeição. Receitas precisam ter utilidades diferentes; nenhuma deve dominar todos os atributos. Não integrar dinheiro real nesta implementação inicial.
+
+11. Reputação operacional separada de nível permanente e de bônus temporário. Atendimento e incidentes alteram reputação; reputação altera movimento e elegibilidade de visitantes. Mostrar as causas da mudança e limitar entidades simultâneas.
+
+12. Loja, expansão, equipamentos e desbloqueios. Distinguir cosméticos de benefícios funcionais. Guardar e recolocar móveis não concede XP de compra nem duplica bônus.
+
+13. Invasões jogáveis em cafés rivais com a própria equipe, caminhos, defensores, chefe, seleção de alvo, ataques automáticos, retirada, vitória, derrota e reanimação. Energia inicial deve ser a energia real do funcionário. A cena não pode ser somente um temporizador que entrega loot.
+
+14. Saque que fornece lotes e oportunidades de descoberta. Recompensa concedida uma vez por invasão. Reanimar não significa necessariamente recuperar toda a energia. Reiniciar o jogo não pode cancelar consequências.
+
+15. Objetivos e tutorial que observem eventos reais. Ensinar cozinha, atendimento, descanso, infecção e invasão. Recompensas e estrelas temporárias têm regras e validade explícitas.
+
+16. Persistência desde a primeira etapa. Salvar posições, moedas, porções, receitas, unidades, energia, tarefas relevantes, horários, objetivos e invasões. Preservar progresso e tempos restantes de preparo, deterioração, descanso e reanimação. Retomar a sessão sem conceder avanços pelo intervalo decorrido. Validar o estado no servidor, impedir simulação duplicada em duas abas e tratar suspensão de abas sem saltos de tempo.
+
+IMPLEMENTAÇÃO E PRIORIDADES
+
+Comece entregando um café mínimo com chef, quatro lugares, um fogão, um balcão, uma pia, três receitas e clientes funcionais. Prove o ciclo completo de produção, venda e limpeza. Depois adicione equipe e energia; em seguida progressão; depois invasões; então aprofundamento de salvamento, reconexão, conteúdo e social.
+
+Use como meta inicial de conteúdo, não como números históricos: seis perfis de funcionário, doze receitas, duas expansões, dez níveis e três cafés NPC. Amplie após validar o ciclo. Variantes de receitas, outros chefs, reserva completa, críticas e pedidos entre amigos entram em etapas posteriores identificadas, sem serem esquecidos.
+
+Para a camada social posterior, implemente visitas, encomendas de comida, entregas e descoberta de receitas compartilhadas. Não crie botões vazios para aparentar conclusão. PvP, pets e eventos avançados são módulos separados.
+
+Separe simulação, dados, apresentação e persistência. Valores de balanceamento devem ficar em configuração. Reutilize a tecnologia do projeto; não migre de engine por preferência pessoal. A renderização não deve determinar dano, dinheiro ou energia. Evite consultas de caminho para todas as entidades a cada frame.
+
+VERIFICAÇÃO OBRIGATÓRIA
+
+Execute cenários que comprovem: vinte atendimentos completos; mesa bloqueada; falta de comida; troca de tarefa com prato em trânsito; infecção acionada duas vezes; funcionário exausto; descanso; surto; lote pronto que estraga; invasão ganha; retirada; derrota e reanimação; recarga durante preparo; recarga após recompensa; reabertura com o mesmo estado salvo; desconexão e retomada; suspensão de aba sem saltos de tempo; duas abas concorrentes sem duplicação.
+
+Assegure que moedas e porções nunca ficam negativas; cada recurso existe em um único local; cliente paga uma vez; recompensa é recebida uma vez; ninguém ocupa duas funções ou dois lugares ao mesmo tempo. Se houver servidor, operações econômicas devem ser validadas ali.
+
+ENTREGA E CONTINUIDADE
+
+Antes de alterar, faça um inventário curto de implementado, parcial e ausente. Depois avance na primeira etapa incompleta sem parar somente no planejamento. Use decisões reversíveis quando faltar um detalhe; pergunte apenas quando houver bloqueio real que não possa ser resolvido pelo código e pelas referências.
+
+Ao concluir uma etapa, informe o que ficou jogável, como foi verificado, quais valores são propostos e o que ainda falta. Registre o próximo passo no projeto para outra sessão continuar sem reler tudo. Não declare fidelidade total ou conclusão de sistemas ainda não testados.
