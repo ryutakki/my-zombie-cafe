@@ -268,3 +268,9 @@ canvas#game { display: block; touch-action: none; cursor: pointer; }
 #lockscreen { position: fixed; inset: 0; z-index: 60; display: grid; place-content: center; justify-items: center; gap: 12px; padding: 20px; text-align: center; background: rgba(20,14,28,.94); color: #fff4dc; }
 #lockscreen h2 { font: 30px var(--display); color: var(--green); margin: 0; }
 #lockscreen p { max-width: 420px; margin: 0; font-weight: 800; }
+#banner { font-size: 13px; line-height: 1.25; width: min(640px, calc(100vw - 150px)); }
+#banner span { flex: 1; min-width: 0; }
+#banner .btn.ghost { padding: 3px 6px; }
+@media (max-height: 520px) { #banner { font-size: 11px; width: min(560px, calc(100vw - 120px)); } }
+#banner:not(.hidden) ~ #toasts { top: 124px; }
+@media (max-height: 520px) { #banner:not(.hidden) ~ #toasts { top: 92px; } }

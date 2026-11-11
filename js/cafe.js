@@ -176,7 +176,7 @@
     if (!known.length) return null;
     const cheap = known.reduce((a, b) => (ZC.RECIPES[a].cost <= ZC.RECIPES[b].cost ? a : b));
     if (s.coins >= ZC.RECIPES[cheap].cost) return null;
-    const food = cafe().objects.some(o => o.servings > 0 || o.cook) || s.fridge.length || rt.zombies.some(a => a.carry);
+    const food = cafe().objects.some(o => o.servings > 0 || o.cook) || s.fridge.length || rt.zombies.some(a => a.carry && (a.carry.kind === 'dish' || a.carry.kind === 'batch'));
     return food ? null : cheap;
   };
   ZC.cookCost = rid => (ZC.rescueRecipe() === rid ? 0 : ZC.RECIPES[rid].cost);

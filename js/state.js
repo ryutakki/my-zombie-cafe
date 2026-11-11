@@ -26,8 +26,7 @@
       owned: { floor: ['tabuas'], wall: ['tijolo'] },
       zombies: [
         ZC.makeStaff('chef', { id: id++, sprite: 'pirate_leader', name: 'Chef', chef: true, role: 'cook' }),
-        ZC.makeStaff('pirate_zombie', { id: id++, name: 'Bob Podre' }),
-        ZC.makeStaff('pirate_zombie', { id: id++, name: 'Zé Caveira' }),
+        ZC.makeStaff('pirate_zombie', { id: id++, name: 'Bob Podre' }),   // one waiter: the second worker is the first customer you infect
       ],
       known, fridge: [], pendingLoot: [],
       rep: { score: CFG.rep.start, bonus: null, log: [] },
@@ -97,6 +96,58 @@
     if (!s.rep) s.rep = { score: CFG.rep.start, bonus: null, log: [] };
     if (s.clock == null) s.clock = 0;
     ZC.state = s;
+  };
+
+  // ---------- one tab at a time ----------
+  // The tab that owns the game keeps a heartbeat in localStorage. A second tab sees it, does not simulate and never
+  // saves; it can take the game over ("Jogar aqui"): the owner then saves one last time and stops, and the new tab
+  // reloads that save. The wall clock is used here only to tell whether the other tab is still alive.
+  const LOCK = KEY + '_lock', BEAT = 1500, STALE = 5000;
+  let TAB = null, beat = 0;
+  const readLock = () => { try { return JSON.parse(localStorage.getItem(LOCK)); } catch (e) { return null; } };
+  const writeLock = extra => { try { localStorage.setItem(LOCK, JSON.stringify(Object.assign({ id: TAB, t: Date.now() }, extra))); return true; } catch (e) { return false; } };
+  function showLock(on) {
+    let el = document.getElementById('lockscreen');
+    if (!on) { if (el) el.remove(); return; }
+    if (el) return;
+    el = document.createElement('div'); el.id = 'lockscreen';
+    const h2 = document.createElement('h2'); h2.textContent = 'Jogo aberto em outra aba';
+    const p = document.createElement('p'); p.textContent = 'Este café já está rodando em outra aba ou janela. Para não duplicar nada, só uma delas joga por vez. Esta aqui está parada e não salva.';
+    const bt = document.createElement('button'); bt.className = 'btn buy'; bt.textContent = 'Jogar aqui';
+    bt.addEventListener('click', () => { bt.disabled = true; bt.textContent = 'Assumindo...'; ZC.takeOverSession(); });
+    el.append(h2, p, bt); document.body.append(el);
+  }
+  function loseSession() {
+    if (ZC.sessionLocked) return;
+    ZC.save();                    // last word of this tab, written before it stops for good
+    ZC.sessionLocked = true;
+    showLock(true);
+  }
+  ZC.sessionInit = function () {
+    try {
+      TAB = sessionStorage.getItem('zc_tab');
+      if (!TAB) { TAB = Math.random().toString(36).slice(2) + Date.now().toString(36); sessionStorage.setItem('zc_tab', TAB); }
+    } catch (e) { TAB = Math.random().toString(36).slice(2); }
+    const lock = readLock();
+    ZC.sessionLocked = !!(lock && lock.id !== TAB && Date.now() - lock.t < STALE);
+    if (ZC.sessionLocked) showLock(true); else writeLock();
+    window.addEventListener('storage', e => {
+      if (e.key !== LOCK || ZC.sessionLocked) return;
+      const l = readLock();
+      if (l && l.id !== TAB) loseSession();
+    });
+    clearInterval(beat);
+    beat = setInterval(() => {
+      if (ZC.sessionLocked) return;
+      const l = readLock();
+      if (l && l.id !== TAB && Date.now() - l.t < STALE) loseSession(); else writeLock();
+    }, BEAT);
+    window.addEventListener('pagehide', () => { if (!ZC.sessionLocked) { const l = readLock(); if (l && l.id === TAB) { try { localStorage.removeItem(LOCK); } catch (e) { /* ignore */ } } } });
+    return !ZC.sessionLocked;
+  };
+  ZC.takeOverSession = function () {
+    writeLock({ takeover: true });                       // the owner hears this, saves and stops
+    setTimeout(() => { writeLock(); location.reload(); }, 700);
   };
 
   ZC.resetGame = function () {

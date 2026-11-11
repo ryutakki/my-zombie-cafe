@@ -1,0 +1,58 @@
+{
+  "personagem": "Zumbi adolescente",
+  "frame_width": 256,
+  "frame_height": 256,
+  "columns": 6,
+  "rows": 4,
+  "row_directions": [
+    "frente_esquerda",
+    "frente_direita",
+    "costas_esquerda",
+    "costas_direita"
+  ],
+  "anchor": [
+    128,
+    240
+  ],
+  "animations": {
+    "ataque": {
+      "file": "spritesheets/ataque.png",
+      "frame_durations_ms": [
+        220,
+        120,
+        80,
+        100,
+        120,
+        320
+      ],
+      "loop": false,
+      "impact_frame": 3
+    },
+    "trabalhando": {
+      "file": "spritesheets/trabalhando.png",
+      "frame_durations_ms": [
+        140,
+        140,
+        140,
+        140,
+        140,
+        140
+      ],
+      "loop": true,
+      "impact_frame": null
+    },
+    "andando_prato": {
+      "file": "spritesheets/andando_prato.png",
+      "frame_durations_ms": [
+        130,
+        130,
+        130,
+        130,
+        130,
+        130
+      ],
+      "loop": true,
+      "impact_frame": null
+    }
+  }
+}

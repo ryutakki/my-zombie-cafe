@@ -1,0 +1,27 @@
+PERSONAGENS ANIMADOS — CAFÉ ISOMÉTRICO
+
+11 personagens: zumbi padrão + mulher, idoso, adolescente, grandalhão e careca;
+5 chefs humanos: clássico, mulher, veterano, barbudo e jovem.
+
+Cada personagem tem ataque, trabalho com mãos vazias e caminhada com prato,
+em 4 direções. São 132 animações, 792 quadros PNG e 33 folhas de sprites.
+
+Pastas por grupo e personagem:
+- frames/acao/direcao/: 6 PNGs transparentes de 256 x 256.
+- spritesheets/: 3 PNGs transparentes de 1536 x 1024.
+- gifs/: 12 prévias animadas.
+- animacoes.json: duração dos quadros, âncora e direções.
+
+Folhas: 6 colunas de tempo, 4 linhas de direção nesta ordem:
+frente_esquerda, frente_direita, costas_esquerda, costas_direita.
+Âncora da célula: (128,240). Ataque toca uma vez; trabalho e caminhada repetem.
+Os GIFs repetem todas as ações para inspeção. A caminhada ocorre no lugar;
+o jogo deve deslocar a entidade. Prato e alimento fazem parte da imagem.
+
+O ataque foi redesenhado como empurrão com as mãos à frente, tronco ereto.
+No zumbi padrão, trabalho e caminhada foram preservados do pacote anterior.
+Os quadros desenhados podem apresentar pequenas variações de traço e volume.
+Use PNGs no jogo; GIFs são prévias com paleta e transparência limitadas.
+
+VERSÃO COMPACTA: PNGs com paleta otimizada de até 128 cores e transparência.
+Dimensões, ações e quantidade de quadros mantidas. Prévia geral reduzida.

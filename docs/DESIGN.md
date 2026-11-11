@@ -145,3 +145,9 @@ imitando o estilo (contorno preto grosso, cores chapadas, visual chibi).
 - Ao soltar num lugar inválido ou ocupado o móvel volta para onde estava, com aviso. Ao assentar, ele cai e quica uma vez e aparece um anel de poeira (`dropOff` e `view.drops` em `js/render.js`).
 - Móveis ocupados (cadeira com cliente, mesa com clientes, fogão cozinhando) não levantam e mostram o motivo. Um toque rápido continua abrindo os menus de sempre.
 - No celular vibra de leve ao levantar, quando o aparelho permite.
+
+## Revisão 12 - mecânicas completas do núcleo
+- Especificação em `Zombie_Cafe_Mecanicas_e_Prompt.md`; o estado da implementação, as decisões e a próxima tarefa ficam em `IMPLEMENTATION_STATUS.md`.
+- O jogo passou a rodar num relógio de sessão (`state.clock`): nada cozinha, cansa ou recupera com o jogo fechado. Isso substitui o "progresso em tempo real" das revisões anteriores.
+- Novos arquivos: `js/config.js` (balanceamento), `js/staff.js` (equipe), `tools/tests/` (cenários automáticos).
+- Chef permanente, funções exclusivas, perfis de zumbi com atributos, energia compartilhada entre café e invasão, descanso, distração, surto, reserva, reputação operacional, receitas conhecidas, geladeira com saque, chefe rival, recuo e reanimação, trava de duas abas, tutorial guiado.

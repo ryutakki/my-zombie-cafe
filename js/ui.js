@@ -15,6 +15,8 @@
   ZC.h = h;
 
   const ic = (name, px = 18) => ZC.icon(name, px);
+  // replaceChildren that skips the empty slots (a bare null would be printed as the word "null")
+  const put = (el, ...kids) => el.replaceChildren(...kids.flat().filter(k => k != null && k !== false));
   const wi = (name, px, ...txt) => h('span', { class: 'wi' }, ic(name, px), ...txt);
   const coin = n => h('span', { class: 'cost' }, h('i', { class: 'ico coin' }), String(n));
   const tox = n => h('span', { class: 'cost' }, h('i', { class: 'ico toxin' }), String(n));
@@ -36,6 +38,7 @@
     const s = ZC.state, r = ZC.rating();
     const cl = ZC.claimable();
     const bd = $('#missbadge'); if (bd) { bd.textContent = cl || ''; bd.style.display = cl ? '' : 'none'; }
+    ZC.updateBanner();
     const sig = [s.coins, s.toxin, s.level, s.xp, Math.round(r * 4), ZC.repBonus(), s.cafe.closed].join('|');
     if (sig === last) return;
     last = sig;
@@ -51,7 +54,34 @@
     $('#rating').title = `Reputação ${r.toFixed(1)}: toque para ver por que ela mudou`;
   };
 
-  ZC.updateBanner = function () { if (ZC.tutorialBanner) ZC.tutorialBanner(); else $('#banner').classList.add('hidden'); };
+  // The tutorial is the first chapter of missions shown one step at a time. Each step is completed by the real
+  // event in the café (never by closing a window), and the current step is part of the save.
+  const TUTOR = {
+    cook1: 'Toque num fogão vazio e escolha uma receita. O chef busca os ingredientes e fica no fogão até ficar pronto.',
+    serve5: 'Com comida no balcão, quem tem a função Atender serve sozinho. Sirva 5 clientes: quanto mais rápido, mais gorjeta.',
+    wash3: 'Mesa com prato sujo não recebe cliente. O atendente leva os pratos à pia: espere 3 serem lavados.',
+    rest1: 'Trabalhar cansa. Toque no seu zumbi e escolha Descansar: cansado ele se distrai, faminto ataca um cliente.',
+    infect1: 'Toque num cliente sentado para ver o que ele seria como zumbi, e escolha Infectar (custa Toxina).',
+    raid1: 'Abra Invasão, mande seus zumbis e derrote o chefe do Beco dos Ladrões. Eles lutam com a energia que têm.',
+  };
+  let bannerSig = null;
+  ZC.updateBanner = function () {
+    const s = ZC.state, el = $('#banner'), v = ZC.view;
+    const steps = ZC.MISSIONS.filter(m => m.ch === 0);
+    const cur = steps.find(m => !s.missions[m.id]), claim = steps.find(m => s.missions[m.id] === 1);
+    const show = !s.tutorialOff && v.scene === 'cafe' && v.mode === 'play' && !v.placing && (cur || claim);
+    const sig = show ? (cur ? cur.id : 'claim') + '|' + (claim ? claim.id : '') + '|' + (cur ? Math.min(cur.goal, Math.floor(ZC.missionValue(cur))) : '') : 'off';
+    if (sig === bannerSig) return;
+    bannerSig = sig;
+    if (!show) { el.classList.add('hidden'); return; }
+    const done = steps.filter(m => s.missions[m.id]).length;
+    put(el,
+      h('span', {}, h('b', {}, cur ? `Passo ${done + 1} de ${steps.length}: ${cur.name}` + (cur.goal > 1 ? ` (${Math.min(cur.goal, Math.floor(ZC.missionValue(cur)))}/${cur.goal})` : '') + '. ' : 'Primeiros passos concluídos! '),
+        cur ? TUTOR[cur.id] || cur.desc : 'Resgate os prêmios em Missões.'),
+      claim ? h('button', { class: 'btn buy', onclick: () => ZC.openMissions() }, 'Resgatar prêmio') : null,
+      h('button', { class: 'btn ghost', title: 'Esconder as dicas', onclick: () => { s.tutorialOff = true; ZC.save(); ZC.updateBanner(); } }, ic('close', 14)));
+    el.classList.remove('hidden');
+  };
 
   // ---------- action box (bottom of the screen): tapping a customer, a worker or a stove ----------
   let liveIv = 0;
@@ -103,7 +133,7 @@
       const now = [st, cost, ZC.state.toxin >= cost, sure].join();
       if (now !== sig) {
         sig = now;
-        acts.replaceChildren(
+        put(acts, 
           st === 'paused' ? h('button', { class: 'btn buy', onclick: sendCook }, 'Retomar') : null,
           st === 'ready' ? h('button', { class: 'btn buy', onclick: sendCook }, 'Levar ao balcão') : null,
           cost ? h('button', { class: 'btn', disabled: ZC.state.toxin < cost, title: 'Termina o prato agora', onclick: () => { ZC.speedUp(o); paint(); } }, wi('clock', 18, 'Acelerar '), tox(cost)) : null,
@@ -133,7 +163,7 @@
       sig = why;
       note.className = 'cwhy' + (why ? '' : ' ok');
       note.textContent = why || `Equipe ${ZC.team().length}/${ZC.maxZombies(ZC.state.level)}. Ele vira zumbi e trabalha no café.`;
-      acts.replaceChildren(h('button', { class: 'btn buy', disabled: !!why, onclick: () => { ZC.closeCustomerMenu(); ZC.startInfect(cu); } }, wi('syringe', 20, 'Infectar '), tox(cost)));
+      put(acts, h('button', { class: 'btn buy', disabled: !!why, onclick: () => { ZC.closeCustomerMenu(); ZC.startInfect(cu); } }, wi('syringe', 20, 'Infectar '), tox(cost)));
       return true;
     };
     paint(); live(paint, 600);
@@ -178,7 +208,7 @@
       const now = [z.role, z.energy >= ZC.zMax(z), ZC.state.toxin >= 1].join();
       if (now === sig) return true;
       sig = now;
-      acts.replaceChildren(
+      put(acts, 
         roleBtn(z, 'serve', paint), roleBtn(z, 'cook', paint),
         z.chef ? null : roleBtn(z, 'rest', paint),
         z.chef ? null : h('button', { class: 'btn', disabled: z.energy >= ZC.zMax(z) || ZC.state.toxin < 1, title: 'Cérebro: energia cheia na hora', onclick: () => { ZC.feedBrain(z); paint(); } }, wi('brain', 20, 'Cérebro '), tox(1)),
@@ -464,6 +494,7 @@
         ZC.save(); ZC.closeModal(); ZC.toast('Prêmio do dia resgatado!', 'good');
       } }, 'Resgatar')), { noClose: true });
   };
+  ZC.afterBoot = function () { if (ZC.CFG.daily.trigger !== 'cook') setTimeout(() => ZC.checkDaily(), 700); };
   ZC.onCooked = function () { if (ZC.CFG.daily.trigger === 'cook') setTimeout(() => ZC.checkDaily(), 900); };
 
   // ---------- missions ----------
@@ -514,6 +545,7 @@
         h('li', {}, 'Arraste para mover a câmera, roda do mouse para zoom.')),
       h('div', { class: 'acts' },
         h('button', { class: 'btn', onclick: () => { ZC.toast(ZC.save() ? 'Jogo salvo.' : 'Não foi possível salvar neste navegador.', 'good'); } }, 'Salvar agora'),
+        ZC.state.tutorialOff ? h('button', { class: 'btn', onclick: () => { ZC.state.tutorialOff = false; ZC.save(); ZC.closeModal(); } }, 'Mostrar as dicas de novo') : null,
         h('button', { class: 'btn', onclick: () => { const s = ZC.state; ZC.addCoins(5000, 'modo teste'); ZC.addToxin(20, 'modo teste'); if (s.level < 8) { s.level = 8; s.xp = 0; for (const [rid, r] of Object.entries(ZC.RECIPES)) if (r.learn === 'level' && r.lvl <= 8) ZC.learn(rid, true); } ZC.save(); ZC.toast('Modo teste: +5000 moedas, +20 toxina, nível 8.', 'good'); ZC.closeModal(); } }, 'Modo teste (moedas e nível 8)'),
         sure
           ? h('button', { class: 'btn buy', onclick: () => { ZC.resetGame(); ZC.view.selZ = null; ZC.resetRuntime(); ZC.fitCamera(); ZC.updateBanner(); ZC.closeModal(); ZC.save(); ZC.toast('Novo jogo!', 'good'); } }, 'Confirmar: apagar tudo')

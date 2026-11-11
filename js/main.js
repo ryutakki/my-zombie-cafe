@@ -280,7 +280,8 @@
     if (act === 'menu') ZC.openMenu();
   });
   document.getElementById('rating').addEventListener('click', () => { if (view.scene === 'cafe') ZC.openReputation(); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) ZC.save(); });
+  // leaving the tab: save and stop. Coming back: carry on from that exact state, with no catching up.
+  document.addEventListener('visibilitychange', () => { if (document.hidden) ZC.save(); else lastT = performance.now(); });
   window.addEventListener('pagehide', () => ZC.save());
 
   // ---------- loop ----------
@@ -339,6 +340,7 @@
   // ---------- boot ----------
   resize();
   ZC.load();
+  ZC.sessionInit();
   const fill = document.querySelector('#loading .bar i');
   const fontsReady = document.fonts ? document.fonts.load('20px "Luckiest Guy"').catch(() => {}) : Promise.resolve();
   Promise.all([ZC.loadAssets(p => { fill.style.width = Math.round(p * 100) + '%'; }), fontsReady]).then(() => {

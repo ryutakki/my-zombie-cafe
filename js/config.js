@@ -85,7 +85,7 @@ window.ZC = window.ZC || {};
     raid: {
       minEnergy: 0.2,             // a worker below this fraction can not be sent
       enemyDamage: 0.8,
-      bossHp: 2.2, bossDamage: 1.35, bossScale: 1.18,
+      bossHp: 2.0, bossDamage: 1.35, bossScale: 1.18,
       eatHeal: 0.25,              // fraction of the maximum energy regained per devoured corpse
       cooldown: 90,               // s of session time before the same café can be raided again
       retreatShare: 0.5,          // retreating keeps this share of the coins already taken from fallen defenders
