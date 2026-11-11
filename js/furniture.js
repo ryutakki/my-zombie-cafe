@@ -266,7 +266,7 @@
       const g = cyl(ctx, 0, 0, 0.27, 28, 46, { side: pot, top: dark(pot, 0.35) });
       ell(ctx, g.cx, g.cy - 46, g.rx - 3, g.ry - 2, '#1a1820', 0);
       let liquid = null;
-      if (busy || st === 'ready') liquid = st === 'pending' ? '#4a4452' : ZC.FOOD_COLOR[o.cook.r] || '#8a6a3a';
+      if (busy || st === 'ready' || st === 'paused') liquid = st === 'pending' ? '#4a4452' : ZC.FOOD_COLOR[o.cook.r] || '#8a6a3a';
       if (st === 'spoiled') liquid = '#4f4a2a';
       if (liquid) {
         ell(ctx, g.cx, g.cy - 45, g.rx - 4, g.ry - 3, liquid, 0);
@@ -417,12 +417,28 @@
   ZC.paintItem = (ctx, type, x, y, o, t) => ZC.drawItem(ctx, type, x, y, o, t);
 
   // ================= FOOD =================
-  ZC.FOOD_COLOR = { ensopado: '#9b6a3a', grogue: '#4f9e35', espeto: '#e89a9a', torta: '#d9a560', sopa_olho: '#6fbf4a', polvo: '#d05538', hamburguer: '#d89a48', pizza: '#e8b050', bolo: '#f0a8c4', banquete: '#b8652c' };
+  ZC.FOOD_COLOR = { sanduiche: '#c9a063', costela: '#a8482c', caldo: '#5a4a78', ensopado: '#9b6a3a', grogue: '#4f9e35', espeto: '#e89a9a', torta: '#d9a560', sopa_olho: '#6fbf4a', polvo: '#d05538', hamburguer: '#d89a48', pizza: '#e8b050', bolo: '#f0a8c4', banquete: '#b8652c' };
   function plate(ctx, x, y, r) {
     ell(ctx, x, y + r * 0.1, r, r * 0.5, '#f1ead8', Math.max(1.6, r * 0.14));
     ell(ctx, x, y + r * 0.05, r * 0.72, r * 0.36, '#dcd3bc', 0);
   }
   const FOOD = {
+    sanduiche(ctx, x, y, r) {   // two slices of bread with something green and something red sticking out
+      ell(ctx, x, y - r * 0.02, r * 0.62, r * 0.3, '#c9a063', Math.max(1.4, r * 0.1));
+      ell(ctx, x, y - r * 0.16, r * 0.66, r * 0.2, '#5fb840', 0); ell(ctx, x + r * 0.1, y - r * 0.2, r * 0.56, r * 0.16, '#d0453a', 0);
+      ell(ctx, x, y - r * 0.36, r * 0.6, r * 0.3, '#e0b878', Math.max(1.4, r * 0.1));
+      ell(ctx, x - r * 0.2, y - r * 0.44, r * 0.08, r * 0.04, '#fff3d0', 0); ell(ctx, x + r * 0.18, y - r * 0.4, r * 0.08, r * 0.04, '#fff3d0', 0);
+    },
+    costela(ctx, x, y, r) {     // a rack of ribs: dark meat with pale bones across it
+      ell(ctx, x, y - r * 0.14, r * 0.72, r * 0.36, '#a8482c', Math.max(1.6, r * 0.11));
+      ell(ctx, x - r * 0.1, y - r * 0.24, r * 0.4, r * 0.14, '#cf6a42', 0);
+      for (const dx of [-0.42, -0.14, 0.14, 0.42]) stroke2(ctx, [[x + dx * r, y - r * 0.44], [x + dx * r + r * 0.06, y + r * 0.14]], '#f4ecd4', Math.max(1.6, r * 0.1), 1.2);
+    },
+    caldo(ctx, x, y, r) {       // a dark purple broth with two pale bubbles and a wisp of steam
+      ell(ctx, x, y - r * 0.05, r * 0.68, r * 0.35, '#5a4a78', Math.max(1.4, r * 0.1));
+      ell(ctx, x - r * 0.2, y - r * 0.1, r * 0.13, r * 0.07, '#9a86c4', 0); ell(ctx, x + r * 0.22, y, r * 0.09, r * 0.05, '#9a86c4', 0);
+      stroke2(ctx, [[x, y - r * 0.3], [x + r * 0.12, y - r * 0.5], [x - r * 0.06, y - r * 0.72]], '#e8e2f4', Math.max(1.3, r * 0.08), 1);
+    },
     ensopado(ctx, x, y, r) {
       ell(ctx, x, y - r * 0.05, r * 0.66, r * 0.34, '#a0703c', Math.max(1.4, r * 0.1));
       ell(ctx, x - r * 0.15, y - r * 0.08, r * 0.2, r * 0.1, '#c99a60', 0); ell(ctx, x + r * 0.2, y, r * 0.14, r * 0.07, '#7a4a22', 0);

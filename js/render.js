@@ -289,6 +289,15 @@
     if (cu.waiter) ZC.drawIcon(ctx, 'dots', px, by + 1, 16); else ctx.fillText('?', px, by + 1);
   }
 
+  function stoveBar(ctx, o, cx, top, color, ink, label) {
+    const c = o.cook, p = c.progress / Math.max(1, c.total), left = Math.max(0, Math.ceil(c.total - c.progress));
+    ZC.ink(ctx, 2.5); ZC.rrect(ctx, cx - 28, top, 56, 11, 5, '#2a2630');
+    ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(cx - 26, top + 2, 52 * Math.min(1, p), 7, 3); ctx.fill();
+    const txt = label || (left >= 3600 ? `${Math.floor(left / 3600)}h${String(Math.floor(left % 3600 / 60)).padStart(2, '0')}` : left >= 60 ? `${Math.floor(left / 60)}m${String(left % 60).padStart(2, '0')}s` : `${left}s`);
+    ctx.font = 'bold 12px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.fillStyle = ink;
+    ctx.strokeText(txt, cx, top - 8); ctx.fillText(txt, cx, top - 8);
+  }
+
   function drawCarry(ctx, a, px, py, t) {
     const c = a.carry; if (!c) return;
     const bob = Math.sin(t * 8) * 1.5;
@@ -319,17 +328,33 @@
     ZC.shadowEll(ctx, px, py + 1, 19, 8);
     if (a.hop > 0) py -= Math.sin((1 - a.hop / 0.35) * Math.PI) * 16;   // little bounce after being dropped
     if (a.kind === 'customer' && a.state === 'infect') return drawInfecting(ctx, a, t, px, py, s);
-    if (a.kind === 'zombie' && a.state === 'collapsed') {
+    const z = a.kind === 'zombie' ? ZC.zombieData(a.id) : null;
+    if (a.kind === 'zombie' && (a.state === 'collapsed' || a.resting)) {   // on the floor: knocked out by exhaustion, or resting
       ZC.drawSprite(ctx, a.sprite, 'die', 0, px, py, s, { tint: a.tint, frame: -1 });
-      ctx.fillStyle = '#d6ffd0'; ctx.font = 'bold 16px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.strokeStyle = INK; ctx.lineWidth = 3;
+      ctx.fillStyle = a.resting ? '#bfe6ff' : '#ffb0a0'; ctx.font = 'bold 16px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.strokeStyle = INK; ctx.lineWidth = 3;
       const zy = py - 44 - (t * 10 % 14); ctx.strokeText('z', px + 14 + Math.sin(t * 2) * 3, zy); ctx.fillText('z', px + 14 + Math.sin(t * 2) * 3, zy);
+      if (z) drawEnergy(ctx, z, px, py - 30, a.resting ? '#6fd6ff' : '#e2483a');
       return;
     }
     let anim, at = t + a.phase;
-    if (a.working) { anim = 'attack_' + (a.dir === 'left' ? 'left' : 'right'); at = (t * 1.1 + a.phase) % ZC.animLength(a.sprite, anim); }
+    if (a.working && a.mood !== 'distracted') { anim = 'attack_' + (a.dir === 'left' ? 'left' : 'right'); at = (t * 1.1 + a.phase) % ZC.animLength(a.sprite, anim); }
     else anim = (a.moving ? 'walk_' : 'idle_') + a.dir;
     ZC.drawSprite(ctx, a.sprite, anim, at, px, py, s, { tint: a.tint || a.variant, alpha: a.alpha != null && a.alpha < 1 ? Math.max(0, a.alpha) : null });
     if (a.kind === 'zombie') drawCarry(ctx, a, px, py, t);
+    if (a.kind === 'zombie' && a.acc) ZC.drawAccessory(ctx, a.acc, px, py - 72, a.dir, t);
+    if (z && !z.chef) {   // what the worker is going through, readable without opening a menu
+      const pc = ZC.zPct(z), E = ZC.CFG.energy;
+      if (a.mood === 'attack' || a.hungerT != null) {            // starving: red pulse and the seconds left to react
+        const k = 0.5 + 0.5 * Math.sin(t * 12);
+        ctx.strokeStyle = `rgba(255,70,50,${0.5 + 0.5 * k})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(px, py + 1, 26, 11, 0, 0, TAU); ctx.stroke();
+        ZC.ink(ctx, 3); ell(ctx, px, py - 104, 15, 14, '#ff5a45');
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 15px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(a.hungerT != null ? String(Math.ceil(a.hungerT)) : '!', px, py - 103);
+      } else if (a.mood === 'distracted') {
+        ZC.ink(ctx, 2.5); ell(ctx, px + 12, py - 98, 12, 11, '#fff9ec'); ZC.drawIcon(ctx, 'dots', px + 12, py - 98, 16);
+      }
+      if (pc <= E.warn || a.mood) drawEnergy(ctx, z, px, py - 86, pc <= E.distract ? '#e2483a' : '#f2b630');
+    }
     if (a.kind === 'customer' && a.special) {   // unique customer: painted accessory + a bobbing gold star
       const sp = ZC.SPECIALS[a.special], al = a.alpha != null ? Math.max(0, Math.min(1, a.alpha)) : 1;
       ctx.save(); ctx.globalAlpha = al;
@@ -341,6 +366,13 @@
       ctx.font = '13px "Luckiest Guy", Impact, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#ffd84a'; ctx.strokeStyle = INK; ctx.lineWidth = 3;
       ctx.strokeText('VIP', px, py - 84); ctx.fillText('VIP', px, py - 84);
     }
+  }
+
+  // a small energy bar over a worker that needs attention
+  function drawEnergy(ctx, z, px, y, color) {
+    const w = 34, p = ZC.zPct(z);
+    ZC.ink(ctx, 2); ZC.rrect(ctx, px - w / 2, y, w, 7, 3, '#2a2630');
+    ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(px - w / 2 + 1.5, y + 1.5, Math.max(0, (w - 3) * p), 4, 2); ctx.fill();
   }
 
   // a piece that was just put down falls the last few pixels and bounces once
@@ -504,16 +536,14 @@
           ctx.beginPath(); ctx.arc(cx + Math.sin(ph * 6 + i * 2) * 7, cy - 52 - ph * 34, 4 + ph * 4, 0, TAU); ctx.fill(); ctx.stroke();
         }
         ctx.globalAlpha = 1;
-        const p = (Date.now() - o.cook.start) / (o.cook.ready - o.cook.start);
-        ZC.ink(ctx, 2.5); ZC.rrect(ctx, cx - 28, top, 56, 11, 5, '#2a2630');
-        ctx.fillStyle = '#8fe05a'; ctx.beginPath(); ctx.roundRect(cx - 26, top + 2, 52 * Math.min(1, p), 7, 3); ctx.fill();
-        const left = Math.max(0, Math.ceil((o.cook.ready - Date.now()) / 1000));
-        const txt = left >= 3600 ? `${Math.floor(left / 3600)}h${String(Math.floor(left % 3600 / 60)).padStart(2, '0')}` : left >= 60 ? `${Math.floor(left / 60)}m${String(left % 60).padStart(2, '0')}s` : `${left}s`;
-        ctx.font = 'bold 12px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.fillStyle = '#fff';
-        ctx.strokeText(txt, cx, top - 8); ctx.fillText(txt, cx, top - 8);
+        stoveBar(ctx, o, cx, top, '#8fe05a', '#fff', null);
+      } else if (st === 'paused') {   // nobody is stirring: the bar stops and the seconds until it burns count down
+        stoveBar(ctx, o, cx, top, '#f2b630', Math.sin(t * 10) > 0 ? '#ffd84a' : '#ff8a6a', `queima em ${Math.ceil(o.cook.abandon)}s`);
       } else if (st === 'ready') {
-        const bob = Math.sin(t * 5) * 4; ZC.ink(ctx, 3);
-        ell(ctx, cx, top + bob, 24, 20, '#9dff6a'); ZC.drawFood(ctx, o.cook.r, cx, top + bob + 2, 13);
+        const bob = Math.sin(t * 5) * 4, soon = o.cook.spoil <= ZC.CFG.kitchen.spoilWarn; ZC.ink(ctx, 3);
+        ell(ctx, cx, top + bob, 24, 20, soon && Math.sin(t * 10) > 0 ? '#ff8a6a' : '#9dff6a'); ZC.drawFood(ctx, o.cook.r, cx, top + bob + 2, 13);
+        if (soon) { ctx.font = 'bold 12px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.fillStyle = '#ff8a6a';
+          const txt = `estraga em ${Math.ceil(o.cook.spoil)}s`; ctx.strokeText(txt, cx, top - 28); ctx.fillText(txt, cx, top - 28); }
       } else if (st === 'spoiled') {
         ZC.ink(ctx, 3); ell(ctx, cx, top, 18, 16, '#c9a24a'); ZC.drawIcon(ctx, 'close', cx, top, 24);
       } else if (st === 'pending') {
@@ -534,6 +564,11 @@
       ZC.ink(ctx, 2.5); ZC.rrect(ctx, cx + 14, cy - 14, w, 19, 9, '#ffd84a'); ctx.fillStyle = INK; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, cx + 14 + w / 2, cy - 4);
     }
     for (const a of rt.customers) if (a.state === 'wait') { const [px, py] = ZC.iso(a.x + 0.5, a.y + 0.5); drawBubble(ctx, a, px, py + 6 - 14); }
+    for (const id in rt.badSeat || {}) {   // a chair nobody can use says so
+      const o = ZC.objById(+id); if (!o || o.hidden) continue;
+      const [cx, cy] = ZC.iso(o.x + 0.5, o.y + 0.5);
+      ZC.ink(ctx, 2.5); ell(ctx, cx, cy - 62, 13, 12, '#ffd9c9'); ZC.drawIcon(ctx, 'lock', cx, cy - 62, 17);
+    }
 
     // furniture lifted by a long press: a shadow on the tile it would land on, and the piece floating above it
     if (view.lift && view.hover) {

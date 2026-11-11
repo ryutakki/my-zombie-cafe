@@ -8,25 +8,34 @@ window.ZC = window.ZC || {};
   ZC.ACTOR_SCALE = 0.6;
 
   // ---------- recipes (cookbook) ----------
-  // time in seconds, price per serving
+  // time in seconds of session time, price per serving.
+  // learn: 'start' = known from the first day · 'level' = learned when the café reaches `lvl` · 'loot' = only by
+  //        studying a batch brought from the rival café that serves it (see ZC.RAIDS[].dish)
+  // lvl = café level needed to cook it · stove = lowest stove tier that can cook it (1 Rústico ... 5 Real)
+  // use = what the dish is good for (shown in the book), so that no recipe is the best at everything
   ZC.RECIPES = {
-    ensopado: { name: 'Ensopado de Rato', cost: 5, time: 20, servings: 6, price: 4, xp: 1, lvl: 1, desc: 'Sopa rala com pedaços suspeitos.' },
-    grogue: { name: 'Grogue Verde', cost: 20, time: 60, servings: 14, price: 5, xp: 3, lvl: 1, desc: 'Bebida borbulhante dos piratas.' },
-    espeto: { name: 'Espetinho de Dedos', cost: 40, time: 120, servings: 22, price: 6, xp: 5, lvl: 2, desc: 'Crocante por fora, macio por dentro.' },
-    torta: { name: 'Torta de Miolos', cost: 60, time: 180, servings: 30, price: 7, xp: 8, lvl: 2, desc: 'Receita da vovó zumbi.' },
-    sopa_olho: { name: 'Sopa de Olhos', cost: 90, time: 300, servings: 40, price: 8, xp: 12, lvl: 3, desc: 'Eles ficam te olhando enquanto você come.' },
-    polvo: { name: 'Polvo Assado', cost: 150, time: 480, servings: 55, price: 9, xp: 18, lvl: 4, desc: 'Direto do navio fantasma.' },
-    hamburguer: { name: 'Hambúrguer Podre', cost: 220, time: 720, servings: 75, price: 10, xp: 26, lvl: 5, desc: 'Maturado por três semanas.' },
-    pizza: { name: 'Pizza de Vísceras', cost: 320, time: 960, servings: 95, price: 11, xp: 34, lvl: 6, desc: 'Borda recheada de algo.' },
-    bolo: { name: 'Bolo de Cérebro', cost: 450, time: 1500, servings: 130, price: 12, xp: 50, lvl: 7, desc: 'Com velinhas e tudo.' },
-    banquete: { name: 'Banquete do Capitão', cost: 700, time: 2400, servings: 190, price: 14, xp: 80, lvl: 8, desc: 'Um assado digno de um capitão.' },
+    ensopado: { name: 'Ensopado de Rato', cost: 5, time: 20, servings: 6, price: 4, xp: 1, lvl: 1, learn: 'start', use: 'Rápido', desc: 'Sopa rala com pedaços suspeitos.' },
+    grogue: { name: 'Grogue Verde', cost: 20, time: 60, servings: 14, price: 5, xp: 3, lvl: 1, learn: 'start', use: 'Abastecer', desc: 'Bebida borbulhante dos piratas.' },
+    sanduiche: { name: 'Sanduíche do Beco', cost: 12, time: 30, servings: 8, price: 4, xp: 5, lvl: 1, learn: 'loot', use: 'XP', desc: 'Ninguém pergunta o que vai dentro.' },
+    espeto: { name: 'Espetinho de Dedos', cost: 40, time: 120, servings: 22, price: 6, xp: 5, lvl: 2, learn: 'start', use: 'Abastecer', desc: 'Crocante por fora, macio por dentro.' },
+    torta: { name: 'Torta de Miolos', cost: 60, time: 180, servings: 30, price: 7, xp: 8, lvl: 2, learn: 'level', use: 'Abastecer', desc: 'Receita da vovó zumbi.' },
+    costela: { name: 'Costela de Brutamontes', cost: 70, time: 150, servings: 16, price: 11, xp: 4, lvl: 2, learn: 'loot', use: 'Lucro', desc: 'Pouca porção, muito preço.' },
+    sopa_olho: { name: 'Sopa de Olhos', cost: 90, time: 300, servings: 40, price: 8, xp: 12, lvl: 3, learn: 'level', use: 'Abastecer', desc: 'Eles ficam te olhando enquanto você come.' },
+    caldo: { name: 'Caldo das Sombras', cost: 60, time: 240, servings: 55, price: 5, xp: 9, lvl: 3, learn: 'loot', use: 'Lote grande', desc: 'Rende muito e ninguém vê o fundo da panela.' },
+    polvo: { name: 'Polvo Assado', cost: 150, time: 480, servings: 55, price: 9, xp: 18, lvl: 4, stove: 2, learn: 'loot', use: 'Lucro', desc: 'Direto do navio fantasma.' },
+    hamburguer: { name: 'Hambúrguer Podre', cost: 220, time: 720, servings: 75, price: 10, xp: 26, lvl: 5, learn: 'level', use: 'Abastecer', desc: 'Maturado por três semanas.' },
+    pizza: { name: 'Pizza de Vísceras', cost: 320, time: 960, servings: 95, price: 11, xp: 34, lvl: 6, stove: 2, learn: 'loot', use: 'Lote grande', desc: 'Borda recheada de algo.' },
+    bolo: { name: 'Bolo de Cérebro', cost: 450, time: 1500, servings: 130, price: 12, xp: 70, lvl: 7, stove: 3, learn: 'loot', use: 'XP', desc: 'Com velinhas e tudo.' },
+    banquete: { name: 'Banquete do Capitão', cost: 700, time: 2400, servings: 190, price: 14, xp: 80, lvl: 8, stove: 3, learn: 'loot', use: 'Lucro', desc: 'Um assado digno de um capitão.' },
   };
-  // mastery: cook a recipe again and again to earn stars; every star pays +15% per serving
+  // mastery (own rule kept from the prototype, not part of the classic core): cooking a recipe again and again
+  // earns stars; every star pays +15% per serving
   ZC.MASTERY = [1, 5, 15, 40, 100];
   ZC.masteryCount = rid => (ZC.state && ZC.state.mastery && ZC.state.mastery[rid]) || 0;
   ZC.masteryStars = rid => ZC.MASTERY.filter(n => ZC.masteryCount(rid) >= n).length;
   ZC.priceOf = rid => Math.max(1, Math.round(ZC.RECIPES[rid].price * (1 + 0.15 * ZC.masteryStars(rid))));
-  ZC.spoilTime = r => Math.max(180, r.time * 2);
+  ZC.spoilTime = r => Math.max(ZC.CFG.kitchen.spoilMin, r.time * ZC.CFG.kitchen.spoilFactor);
+  ZC.lootSource = rid => ZC.RAIDS.find(tg => tg.dish === rid);
 
   // ---------- furniture themes: each has table, chair, stove, fridge, sink and counter ----------
   ZC.THEMES = [
@@ -39,8 +48,8 @@ window.ZC = window.ZC || {};
   const CATS = {
     table: { n: 'Mesa', g: 1, base: 40, hh: 46, desc: 'Clientes comem aqui. Precisa de cadeiras ao lado.' },
     chair: { n: 'Cadeira', g: 1, base: 25, hh: 46, desc: 'Coloque ao lado de uma mesa.' },
-    stove: { n: 'Fogão', g: 0, base: 120, hh: 80, desc: 'Um zumbi cozinha aqui.' },
-    fridge: { n: 'Geladeira', g: 1, base: 100, hh: 106, desc: 'Zumbis buscam ingredientes aqui.' },
+    stove: { n: 'Fogão', g: 0, base: 120, hh: 80, desc: 'Um cozinheiro prepara um lote aqui.' },
+    fridge: { n: 'Geladeira', g: 1, base: 100, hh: 106, desc: 'Ingredientes e 2 lotes de comida saqueada.' },
     sink: { n: 'Pia', g: 1, base: 80, hh: 62, desc: 'Zumbis lavam os pratos sujos aqui.' },
     counter: { n: 'Balcão', g: 0, base: 80, hh: 58, desc: 'Guarda as porções prontas.' },
   };
@@ -52,7 +61,7 @@ window.ZC = window.ZC || {};
       ZC.ITEMS[`${cat}_${th.id}`] = {
         name: `${c.n} ${th.adj[c.g]}`, cat, theme: th.id, tier: i + 1,
         price: Math.round(c.base * MULT[i] / 5) * 5, rating: i * 0.5, lvl: th.lvl, hh: c.hh,
-        desc: c.desc + (i ? ` +${i * 0.5} avaliação` : ''),
+        desc: c.desc + (i ? ` +${i * 0.5} ambiente` : ''),
       };
     }
   });
@@ -82,7 +91,7 @@ window.ZC = window.ZC || {};
   ];
   const DESC = { rug_red: 'Passam por cima.', rug_green: 'Passam por cima.' };
   for (const [id, name, price, rating, lvl, hh, flat] of DECOR) {
-    ZC.ITEMS[id] = { name, cat: 'decor', price, rating, lvl, hh, flat: !!flat, desc: (DESC[id] || '') + ` +${rating} avaliação` };
+    ZC.ITEMS[id] = { name, cat: 'decor', price, rating, lvl, hh, flat: !!flat, desc: (DESC[id] || '') + ` +${rating} ambiente (clientes mais pacientes)` };
   }
 
   // ---------- floors and walls ----------
@@ -120,25 +129,26 @@ window.ZC = window.ZC || {};
     { sprite: 'squidman', coins: 0, toxin: 4, desc: 'Mais vida e força nas invasões.' },
   ];
 
-  // enemy cafés: lvl = the level they match. Enemies of the same level hit 20% softer than your zombies.
+  // enemy cafés: lvl = the level they match. The FIRST enemy of each list is the boss (the rival chef): beating it
+  // wins the raid and the food. dish = the batch you bring home (study it to learn the recipe, or serve it).
+  // Enemies of the same level hit 20% softer than your zombies.
   // xp comes from the xp curve so that raids are a main source of progress.
   ZC.RAIDS = [
-    { id: 'beco', name: 'Beco dos Ladrões', sign: 'BECO', lvl: 1, enemies: ['robber', 'robber'], coins: [40, 70], toxin: 1 },
-    { id: 'taverna', name: 'Taverna dos Brutos', sign: 'TAVERNA', lvl: 2, enemies: ['robber', 'thug'], coins: [90, 140], toxin: 2 },
-    { id: 'covil', name: 'Covil das Sombras', sign: 'COVIL', lvl: 3, enemies: ['assassin', 'thug'], coins: [180, 260], toxin: 3 },
-    { id: 'navio', name: 'Navio do Capitão', sign: 'NAVIO', lvl: 4, enemies: ['thug', 'robber'], coins: [400, 600], toxin: 4 },
-    { id: 'floresta', name: 'Floresta dos Caçadores', sign: 'FLORESTA', lvl: 5, enemies: ['assassin', 'thug', 'robber'], coins: [550, 800], toxin: 5 },
-    { id: 'fortaleza', name: 'Fortaleza do Barão', sign: 'FORTALEZA', lvl: 7, enemies: ['thug', 'thug', 'assassin'], coins: [950, 1400], toxin: 6 },
-    { id: 'porto', name: 'Porto dos Piratas', sign: 'PORTO', lvl: 9, enemies: ['pirate_leader', 'thug', 'assassin'], coins: [1700, 2500], toxin: 8 },
-    { id: 'mansao', name: 'Mansão Mofada', sign: 'MANSÃO', lvl: 10, enemies: ['thug', 'assassin', 'robber', 'thug'], coins: [2200, 3000], toxin: 9 },
-    { id: 'cassino', name: 'Cassino Clandestino', sign: 'CASSINO', lvl: 12, enemies: ['assassin', 'thug', 'assassin', 'thug'], coins: [3000, 4200], toxin: 10 },
-    { id: 'quartel', name: 'Quartel dos Piratas', sign: 'QUARTEL', lvl: 14, enemies: ['pirate_leader', 'robber', 'assassin', 'thug'], coins: [4200, 5800], toxin: 12 },
-    { id: 'castelo', name: 'Castelo do Barão', sign: 'CASTELO', lvl: 15, enemies: ['thug', 'assassin', 'thug', 'assassin', 'robber'], coins: [5500, 7500], toxin: 14 },
-    { id: 'ilha', name: 'Ilha dos Corsários', sign: 'ILHA', lvl: 17, enemies: ['pirate_leader', 'assassin', 'thug', 'robber', 'thug'], coins: [7500, 10000], toxin: 16 },
-    { id: 'cidadela', name: 'Cidadela Sombria', sign: 'CIDADELA', lvl: 18, enemies: ['pirate_leader', 'thug', 'robber', 'thug', 'assassin', 'robber'], coins: [10000, 13000], toxin: 18 },
-    { id: 'trono', name: 'Trono do Rei Pirata', sign: 'TRONO', lvl: 20, enemies: ['pirate_leader', 'thug', 'robber', 'assassin', 'thug', 'robber', 'thug'], coins: [15000, 20000], toxin: 25 },
+    { id: 'beco', dish: 'sanduiche', name: 'Beco dos Ladrões', sign: 'BECO', lvl: 1, enemies: ['robber', 'robber'], coins: [40, 70], toxin: 1 },
+    { id: 'taverna', dish: 'costela', name: 'Taverna dos Brutos', sign: 'TAVERNA', lvl: 2, enemies: ['robber', 'thug'], coins: [90, 140], toxin: 2 },
+    { id: 'covil', dish: 'caldo', name: 'Covil das Sombras', sign: 'COVIL', lvl: 3, enemies: ['assassin', 'thug'], coins: [180, 260], toxin: 3 },
+    { id: 'navio', dish: 'polvo', name: 'Navio do Capitão', sign: 'NAVIO', lvl: 4, enemies: ['thug', 'robber'], coins: [400, 600], toxin: 4 },
+    { id: 'floresta', dish: 'pizza', name: 'Floresta dos Caçadores', sign: 'FLORESTA', lvl: 5, enemies: ['assassin', 'thug', 'robber'], coins: [550, 800], toxin: 5 },
+    { id: 'fortaleza', dish: 'bolo', name: 'Fortaleza do Barão', sign: 'FORTALEZA', lvl: 7, enemies: ['thug', 'thug', 'assassin'], coins: [950, 1400], toxin: 6 },
+    { id: 'porto', dish: 'banquete', name: 'Porto dos Piratas', sign: 'PORTO', lvl: 9, enemies: ['pirate_leader', 'thug', 'assassin'], coins: [1700, 2500], toxin: 8 },
+    { id: 'mansao', dish: 'hamburguer', name: 'Mansão Mofada', sign: 'MANSÃO', lvl: 10, enemies: ['thug', 'assassin', 'robber', 'thug'], coins: [2200, 3000], toxin: 9 },
+    { id: 'cassino', dish: 'pizza', name: 'Cassino Clandestino', sign: 'CASSINO', lvl: 12, enemies: ['assassin', 'thug', 'assassin', 'thug'], coins: [3000, 4200], toxin: 10 },
+    { id: 'quartel', dish: 'bolo', name: 'Quartel dos Piratas', sign: 'QUARTEL', lvl: 14, enemies: ['pirate_leader', 'robber', 'assassin', 'thug'], coins: [4200, 5800], toxin: 12 },
+    { id: 'castelo', dish: 'banquete', name: 'Castelo do Barão', sign: 'CASTELO', lvl: 15, enemies: ['thug', 'assassin', 'thug', 'assassin', 'robber'], coins: [5500, 7500], toxin: 14 },
+    { id: 'ilha', dish: 'banquete', name: 'Ilha dos Corsários', sign: 'ILHA', lvl: 17, enemies: ['pirate_leader', 'assassin', 'thug', 'robber', 'thug'], coins: [7500, 10000], toxin: 16 },
+    { id: 'cidadela', dish: 'bolo', name: 'Cidadela Sombria', sign: 'CIDADELA', lvl: 18, enemies: ['pirate_leader', 'thug', 'robber', 'thug', 'assassin', 'robber'], coins: [10000, 13000], toxin: 18 },
+    { id: 'trono', dish: 'banquete', name: 'Trono do Rei Pirata', sign: 'TRONO', lvl: 20, enemies: ['pirate_leader', 'thug', 'robber', 'assassin', 'thug', 'robber', 'thug'], coins: [15000, 20000], toxin: 25 },
   ];
-  ZC.RAID_COOLDOWN = 90;
 
   // progression: level 20 is the cap for now; a slow curve (raids and recipes feed it)
   ZC.MAX_LEVEL = 20;
@@ -154,7 +164,7 @@ window.ZC = window.ZC || {};
   const NOW = {
     level: () => ZC.state.level,
     rating: () => ZC.rating(),
-    crew: () => ZC.state.zombies.length,
+    crew: () => ZC.crew().length,
     furniture: () => ZC.state.cafe.objects.length,
     size: () => ZC.state.cafe.w,
   };
@@ -165,10 +175,12 @@ window.ZC = window.ZC || {};
     ['cook1', 0, 'Primeira Panela', 'Cozinhe 1 prato.', 'cooked', 1, { coins: 60, xp: 4 }],
     ['serve5', 0, 'Casa Aberta', 'Sirva 5 clientes.', 'served', 5, { coins: 90, xp: 6 }],
     ['wash3', 0, 'Pratos Limpos', 'Lave 3 pratos sujos.', 'washed', 3, { coins: 70, toxin: 1 }],
+    ['rest1', 0, 'Hora do Descanso', 'Toque num zumbi cansado e mande descansar.', 'rested', 1, { coins: 60, xp: 4 }],
     ['infect1', 0, 'Sangue Novo', 'Infecte 1 cliente.', 'infected', 1, { coins: 120, toxin: 1 }],
     ['raid1', 0, 'Primeira Invasão', 'Vença 1 invasão.', 'raids', 1, { coins: 180, toxin: 2, xp: 10 }],
+    ['study1', 1, 'Receita Roubada', 'Estude na geladeira um prato trazido de uma invasão.', 'studied', 1, { coins: 200, toxin: 1 }],
     ['cook10', 1, 'Chef Zumbi', 'Cozinhe 10 pratos.', 'cooked', 10, { coins: 220, xp: 12 }],
-    ['rate2', 1, 'Café Decente', 'Chegue a 2 estrelas de avaliação.', 'rating', 2, { coins: 260, toxin: 1 }],
+    ['rate2', 1, 'Café Decente', 'Chegue a 2,5 estrelas de reputação atendendo bem.', 'rating', 2.5, { coins: 260, toxin: 1 }],
     ['crew3', 1, 'Equipe de Cozinha', 'Tenha 3 zumbis.', 'crew', 3, { coins: 300, toxin: 2 }],
     ['eat3', 1, 'Nada se Perde', 'Devore 3 corpos nas invasões.', 'eaten', 3, { coins: 240, toxin: 2 }],
     ['lvl4', 1, 'Subindo na Vida', 'Chegue ao nível 4.', 'level', 4, { coins: 400, toxin: 3 }],
@@ -182,7 +194,7 @@ window.ZC = window.ZC || {};
     ['raid12', 3, 'Terror da Cidade', 'Vença 12 invasões.', 'raids', 12, { coins: 2600, toxin: 8 }],
     ['earn20k', 3, 'Rei da Gordura', 'Ganhe 20.000 moedas no total.', 'earned', 20000, { coins: 3000, toxin: 6 }],
     ['lvl10', 2, 'Dono do Pedaço', 'Chegue ao nível 10.', 'level', 10, { coins: 3000, toxin: 8 }],
-    ['crew6', 3, 'Exército Podre', 'Tenha 6 zumbis (nível 18).', 'crew', 6, { coins: 9000, toxin: 14 }],
+    ['crew6', 3, 'Exército Podre', 'Tenha 6 zumbis (contando a reserva).', 'crew', 6, { coins: 9000, toxin: 14 }],
     ['lvl20', 3, 'Imperador Zumbi', 'Chegue ao nível 20.', 'level', 20, { coins: 20000, toxin: 30 }],
   ];
   ZC.MISSIONS = M.map(([id, ch, name, desc, stat, goal, reward]) => ({ id, ch, name, desc, stat, goal, reward }));

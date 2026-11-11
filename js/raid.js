@@ -1,13 +1,14 @@
 // Raid: your zombies storm an enemy café, drawn in the same isometric view as yours.
-// Tap a zombie to send it in (or use "Atacar com todos"); tap an enemy to make everybody focus on it.
+// The fighters are the same staff that works in your café: while they are here they are not there, and their
+// energy IS their life in the fight (every hit is written straight to the worker's energy).
+// Tap a zombie to send it in (or use "Atacar com todos"). Tap an enemy: everybody focuses on it; with one of your
+// zombies selected (tap it again after it went in) only that one gets the order. Beat the boss to win.
 (() => {
   const ZC = window.ZC;
   const TAU = Math.PI * 2;
   const INK = '#17121c';
+  const C = ZC.CFG.raid;
   const EAT_T = 1.9;                 // seconds a zombie spends devouring one corpse
-  const EAT_HEAL = 0.4;              // fraction of max HP regained per corpse
-  const EAT_ENERGY = 12;             // café energy regained per corpse
-  const ENEMY_DMG = 0.8;             // enemies of the same level hit 20% softer than your zombies
   const RANGE = 1.35;                // melee reach in tiles
   const WALK = 2.1;                  // tiles per second at speed 1
   const key = (x, y) => x + ',' + y;
@@ -100,41 +101,64 @@
   // ---------- setup ----------
   function mkUnit(side, sprite, tint, x, y, hp, atk, speed, extra) {
     return Object.assign({ side, sprite, tint, x, y, hp, maxHp: hp, atk, speed, dir: side === 'z' ? 'back' : 'front', face: 'right',
-      state: side === 'z' ? 'wait' : 'idle', st: 0, cd: rand(0.2, 0.8), hit: false, phase: Math.random() * 3, eaten: 0, path: null, repathT: 0,
-      target: null, sent: false, alert: false, idleT: rand(1, 4), eaten_: false }, extra);
+      state: side === 'z' ? 'wait' : 'idle', st: 0, cd: rand(0.2, 0.8), hit: false, phase: Math.random() * 3, eaten: 0, kills: 0, path: null, repathT: 0,
+      target: null, order: null, sent: false, alert: false, idleT: rand(1, 4), eaten_: false }, extra);
   }
+  // a zombie's life in the raid is its energy: keep the two in step after every change
+  const sync = u => { if (u.side === 'z') { const z = ZC.zombieData(u.zid); if (z) z.energy = Math.max(0, Math.min(u.maxHp, u.hp)); } };
 
   ZC.startRaid = function (tg, zombieIds) {
-    const cafe = buildCafe(tg);
-    R = { target: tg, cafe, blk: new Set(), units: [], fx: [], parts: [], t: 0, result: null, focus: null, cleanT: 0, hintSig: '',
-      rt: { customers: [], zombies: [], dirty: {}, seat: {}, claims: {}, washing: {}, door: 0, fx: null, extraActors: null } };
+    const s = ZC.state, cafe = buildCafe(tg);
+    const zs = zombieIds.map(id => ZC.zombieData(id)).filter(z => z && !z.chef && !z.away && !(z.revive > 0) && z.role !== 'reserve');
+    R = { id: ZC.newId(), target: tg, cafe, blk: new Set(), units: [], fx: [], parts: [], t: 0, result: null, focus: null, sel: null, cleanT: 0, hintSig: '', taken: 0,
+      rt: { customers: [], zombies: [], dirty: {}, seat: {}, claims: {}, washing: {}, badSeat: {}, door: 0, fx: null, extraActors: null } };
     for (const o of cafe.objects) if (!ZC.ITEMS[o.type].flat) R.blk.add(key(o.x, o.y));
     R.rt.fx = R.fx; R.rt.extraActors = addUnits;
-    // enemies: spread over the free floor tiles of the front rows
+    // the boss stands at the back, by the kitchen; the others are spread over the floor
     const spots = [];
     for (let y = 1; y < cafe.h - 1; y++) for (let x = 0; x < cafe.w; x++) if (!R.blk.has(key(x, y)) && x !== cafe.doorX) spots.push([x, y]);
     spots.sort(() => Math.random() - 0.5);
-    const lvlK = 1 + 0.03 * (tg.lvl - 1), dmgK = Math.max(0.5, Math.min(1.6, 1 + 0.1 * (tg.lvl - ZC.state.level)));
+    const lvlK = 1 + 0.03 * (tg.lvl - 1), dmgK = Math.max(0.5, Math.min(1.6, 1 + 0.1 * (tg.lvl - s.level)));
     const placed = [];
-    for (const sp of tg.enemies) {
-      const u = ZC.UNITS[sp];
-      let at = spots.find(([x, y]) => placed.every(([px, py]) => Math.hypot(px - x, py - y) >= 2)) || spots[placed.length] || [1, 1];
+    tg.enemies.forEach((sp, i) => {
+      const u = ZC.UNITS[sp], boss = i === 0;
+      let at = boss ? spots.slice().sort((p, q) => p[1] - q[1] || Math.abs(p[0] - cafe.doorX) - Math.abs(q[0] - cafe.doorX))[0]
+        : spots.find(([x, y]) => placed.every(([px, py]) => Math.hypot(px - x, py - y) >= 2)) || spots[placed.length];
+      at = at || [1, 1];
       placed.push(at);
-      R.units.push(mkUnit('h', sp, false, at[0], at[1], Math.round(u.hp * lvlK), ZC.ZOMBIE.atk * ENEMY_DMG * dmgK, u.speed, { home: at, dir: ['front', 'back', 'left', 'right'][Math.floor(Math.random() * 4)] }));
-    }
-    // your squad waits on the road in front of the door
-    const zs = zombieIds.map(id => ZC.zombieData(id)).filter(Boolean), n = zs.length;
-    zs.forEach((z, i) => {
-      const vigor = 0.5 + 0.5 * z.energy / 100;   // tired zombies hit softer
-      R.units.push(mkUnit('z', z.sprite, z.tint, cafe.doorX, cafe.h + 1 + i * 0.85, ZC.ZOMBIE.hp, ZC.ZOMBIE.atk * vigor, ZC.ZOMBIE.speed, { zid: z.id, name: z.name }));
+      R.units.push(mkUnit('h', sp, false, at[0], at[1], Math.round(u.hp * lvlK * (boss ? C.bossHp : 1)), ZC.ZOMBIE.atk * C.enemyDamage * dmgK * (boss ? C.bossDamage : 1), u.speed,
+        { home: at, boss, dir: ['front', 'back', 'left', 'right'][Math.floor(Math.random() * 4)] }));
     });
+    // the squad leaves the café (nobody is in two places) and waits on the road in front of the rival's door
+    s.raid = { id: R.id, target: tg.id, ids: zs.map(z => z.id) };
+    zs.forEach((z, i) => {
+      z.away = R.id;
+      R.units.push(mkUnit('z', z.sprite, z.tint, cafe.doorX, cafe.h + 1 + i * 0.85, z.energy, ZC.zStr(z), ZC.zSpeed(z), { zid: z.id, name: z.name, maxHp: ZC.zMax(z) }));
+    });
+    ZC.syncZombies();
+    ZC.save();
     updateHint(true);
   };
 
   ZC.endRaid = function () { R = null; ZC.syncZombies(); const hint = document.getElementById('raidhint'); if (hint) hint.textContent = ''; };
 
+  // the page was closed in the middle of a raid: the squad simply comes home with the energy it had, and nothing else.
+  // The cooldown was already running, and no reward exists until a raid is finished, so nothing can be claimed twice.
+  ZC.resolveInterruptedRaid = function () {
+    const s = ZC.state;
+    for (const z of s.zombies) if (z.away) { delete z.away; if (z.energy <= 0) { z.energy = 0; z.revive = C.reviveTime; } }
+    if (!s.raid) return false;
+    s.raid = null;
+    return true;
+  };
+
   // ---------- commands ----------
-  function send(u) { if (!u.sent && u.state !== 'dead') { u.sent = true; u.state = 'idle'; u.cd = 0.2; ZC.toast(`${u.name} partiu para o ataque!`, 'good'); } }
+  function send(u) {
+    if (u.sent || u.state === 'dead') return;
+    u.sent = true; u.state = 'idle'; u.cd = 0.2;
+    ZC.state.raidReady[R.target.id] = ZC.state.clock + C.cooldown;   // from the first zombie through the door the raid counts
+    ZC.toast(`${u.name} partiu para o ataque!`, 'good');
+  }
   ZC.sendAll = function () { if (R && !R.result) for (const u of R.units) if (u.side === 'z') send(u); };
   ZC.raidSent = () => !!R && R.units.some(u => u.side === 'z' && u.sent);
 
@@ -146,19 +170,30 @@
     if (!R || R.result) return;
     let best = null, bd = -1e9;
     for (const u of R.units) if (u.state !== 'dead' && unitBox(u, wx, wy) && u.x + u.y > bd) { bd = u.x + u.y; best = u; }
-    if (!best) return;
-    if (best.side === 'z') { if (!best.sent) send(best); return; }
-    R.focus = R.focus === best ? null : best;                 // tap again to drop the focus
-    for (const u of R.units) if (u.side === 'z' && u.sent) { u.target = null; u.path = null; }
+    if (!best) { R.sel = null; updateHint(true); return; }
+    if (best.side === 'z') {
+      if (!best.sent) send(best); else R.sel = R.sel === best ? null : best;      // tap a fighter to give it its own orders
+      updateHint(true); return;
+    }
+    if (R.sel && R.sel.state !== 'dead') { R.sel.order = R.sel.order === best ? null : best; R.sel.target = null; R.sel.path = null; }
+    else {
+      R.focus = R.focus === best ? null : best;                 // tap again to drop the focus
+      for (const u of R.units) if (u.side === 'z' && u.sent) { u.order = null; u.target = null; u.path = null; }
+    }
     updateHint(true);
   };
 
   // ---------- simulation ----------
   const foesOf = u => R.units.filter(o => o.side !== u.side && o.state !== 'dead' && (o.side === 'h' || o.sent));
   const attackers = e => R.units.filter(o => o.side === 'z' && o.target === e && o.state !== 'dead').length;
+  function wanted(u) {   // the order this zombie is under, if any
+    if (u.order && u.order.state !== 'dead') return u.order;
+    if (R.focus && R.focus.state !== 'dead') return R.focus;
+    return null;
+  }
   function pickTarget(u) {
     if (u.side === 'z') {
-      if (R.focus && R.focus.state !== 'dead') return R.focus;
+      const w = wanted(u); if (w) return w;
       const foes = foesOf(u); if (!foes.length) return null;
       return foes.reduce((b, o) => ((attackers(o) * 2 + dist(u, o)) < (attackers(b) * 2 + dist(u, b)) ? o : b));
     }
@@ -169,7 +204,7 @@
   function nearestCorpse(u) {
     let best = null, bd = 1e9;
     for (const c of R.units) {
-      if (c.side !== 'h' || c.state !== 'dead' || c.eaten_ || c.st < 0.9) continue;
+      if (c.side !== 'h' || c.state !== 'dead' || c.eaten_ || c.fled || c.st < 0.9) continue;
       if (c.claim && c.claim !== u && c.claim.state === 'eat' && R.t - (c.claimT || 0) < 0.35) continue;
       const d = dist(c, u); if (d < bd) { bd = d; best = c; }
     }
@@ -180,10 +215,20 @@
   function strike(u) {
     const tg = u.target; if (!tg || tg.state === 'dead') return;
     const dmg = Math.max(1, Math.round(u.atk * rand(0.85, 1.15)));
-    tg.hp -= dmg;
+    tg.hp -= dmg; sync(tg);
     say(tg, '-' + dmg, u.side === 'z' ? '#ffd84a' : '#ff6a5a');
     if (tg.side === 'h') { tg.alert = true; tg.revenge = u; for (const o of R.units) if (o.side === 'h' && o.state !== 'dead' && dist(o, tg) < 4.5) o.alert = true; }
-    if (tg.hp <= 0) { tg.state = 'dead'; tg.st = 0; tg.path = null; if (R.focus === tg) R.focus = null; }
+    if (tg.hp <= 0) {
+      tg.hp = 0; tg.state = 'dead'; tg.st = 0; tg.path = null;
+      if (R.focus === tg) R.focus = null;
+      if (R.sel === tg) R.sel = null;
+      if (tg.side === 'h') {
+        u.kills++;
+        if (tg.boss) {   // the rival chef is down: the raid is won and whoever is left runs away
+          for (const o of R.units) if (o.side === 'h' && o.state !== 'dead') { o.state = 'dead'; o.fled = true; o.st = 0; o.path = null; say(o, 'Fugiu!', '#fff'); }
+        } else R.taken += Math.round(R.target.coins[0] * C.defenderCoins);
+      } else say(tg, 'Caiu!', '#ff6a5a');
+    }
     else if (tg.state !== 'attack' && tg.state !== 'eat') { tg.state = 'hurt'; tg.st = 0; tg.path = null; tg.face = lr(tg, u); }
   }
 
@@ -195,7 +240,7 @@
       if (R.units.some(z => z.side === 'z' && z.sent && z.state !== 'dead' && dist(z, u) < 4.2)) { u.alert = true; return; }
       if (u.path && u.path.length) { u.state = 'walk'; if (follow(u, dt)) { u.state = 'idle'; u.path = null; } return; }
       u.state = 'idle'; u.idleT -= dt;
-      if (u.idleT <= 0) {
+      if (u.idleT <= 0 && !u.boss) {
         u.idleT = rand(2.5, 6);
         const opts = DIRS.map(([dx, dy]) => [u.home[0] + dx * (Math.random() < 0.5 ? 1 : 2), u.home[1] + dy * (Math.random() < 0.5 ? 1 : 2)]).filter(([x, y]) => inside(R.cafe, x, y) && !R.blk.has(key(x, y)));
         const p = opts.length && Math.random() < 0.6 ? opts[Math.floor(Math.random() * opts.length)] : null;
@@ -207,8 +252,8 @@
     // ---- fighting ----
     if (u.side === 'z') {                                   // hurt (or victorious) zombies stop to devour a fallen human
       const foes = foesOf(u);
-      if (u.hp < u.maxHp * 0.6 || !foes.length) {
-        const c = nearestCorpse(u);
+      if ((u.hp < u.maxHp * 0.5 && !wanted(u)) || !foes.length) {
+        const c = u.hp < u.maxHp ? nearestCorpse(u) : null;
         if (c) {
           c.claim = u; c.claimT = R.t;
           if (dist(u, c) <= RANGE) {
@@ -221,7 +266,8 @@
         }
       }
     }
-    if (!u.target || u.target.state === 'dead' || (u.side === 'z' && R.focus && u.target !== R.focus)) { u.target = pickTarget(u); u.path = null; }
+    const w = u.side === 'z' ? wanted(u) : null;
+    if (!u.target || u.target.state === 'dead' || (w && u.target !== w)) { u.target = pickTarget(u); u.path = null; }
     const tgt = u.target;
     if (!tgt) { u.state = 'idle'; return; }
     if (dist(u, tgt) <= RANGE) {
@@ -235,46 +281,64 @@
     if (u.path && u.path.length) { u.state = 'walk'; follow(u, dt); } else { u.state = 'idle'; u.target = null; }
   }
 
-  function finish(win) {
-    R.result = win ? 'win' : 'lose';
+  // The one place where a raid pays out. It runs once: the raid id is cleared from the save in the same step.
+  function finish(outcome) {
     const s = ZC.state, tg = R.target;
-    const res = { win, coins: 0, toxin: 0, xp: 0, recruit: null, knocked: [], eaten: 0, energy: 0 };
-    for (const u of R.units) if (u.side === 'z' && u.sent) {
+    if (R.result || !s.raid || s.raid.id !== R.id) return;
+    R.result = outcome;
+    const res = { outcome, win: outcome === 'win', coins: 0, toxin: 0, xp: 0, loot: null, recruit: null, knocked: [], back: [], eaten: 0 };
+    for (const u of R.units) if (u.side === 'z') {
       const z = ZC.zombieData(u.zid);
       if (!z) continue;
-      if (u.state === 'dead') { z.energy = Math.max(0, z.energy - 40); res.knocked.push(z.name); }
-      else {
-        const before = Math.max(0, z.energy - 10);
-        z.energy = Math.min(100, before + u.eaten * EAT_ENERGY);   // devoured corpses feed the zombie
-        res.energy += z.energy - before;
-      }
+      delete z.away;
+      if (u.state === 'dead') { z.energy = 0; z.revive = C.reviveTime; res.knocked.push(z.name); }
+      else { z.energy = Math.max(1, Math.round(Math.min(u.maxHp, u.hp))); if (u.sent) res.back.push({ name: z.name, energy: z.energy, max: ZC.zMax(z) }); }
       res.eaten += u.eaten;
+      if (u.sent) ZC.zXP(z, u.kills * ZC.CFG.staff.xpRaidKill + (outcome === 'win' ? ZC.CFG.staff.xpRaidWin : 0));
     }
     if (res.eaten) ZC.stat('eaten', res.eaten);
-    if (win) {
+    if (outcome === 'win') {
       res.coins = Math.round(tg.coins[0] + Math.random() * (tg.coins[1] - tg.coins[0]));
       res.toxin = tg.toxin; res.xp = tg.xp;
-      ZC.addCoins(res.coins); ZC.addToxin(res.toxin); ZC.stat('earned', res.coins); ZC.stat('raids');
-      if (s.zombies.length < ZC.maxZombies(s.level)) {
-        const sp = ZC.HUMANS[Math.floor(Math.random() * ZC.HUMANS.length)];
-        const used = new Set(s.zombies.map(z => z.name));
-        const free = ZC.ZOMBIE_NAMES.filter(n => !used.has(n));
-        const name = free.length ? free[Math.floor(Math.random() * free.length)] : 'Zumbi ' + s.nextId;
-        const z = { id: ZC.newId(), sprite: sp, tint: true, name, energy: 100 };
-        s.zombies.push(z);
-        res.recruit = z;
+      ZC.addCoins(res.coins, 'saque: ' + tg.name); ZC.addToxin(res.toxin, 'saque: ' + tg.name); ZC.stat('earned', res.coins);
+      // the food: one batch of the house dish, kept in the fridge (or waiting for room). Never dropped.
+      const D = ZC.RECIPES[tg.dish];
+      if (D) {
+        const isNew = !ZC.knows(tg.dish), b = ZC.storeBatch({ r: tg.dish, servings: D.servings, from: tg.id });
+        s.stats.p_loot = (s.stats.p_loot || 0) + D.servings;
+        res.loot = { r: tg.dish, servings: D.servings, isNew, pending: s.pendingLoot.includes(b) };
       }
+      if (C.capture) {   // own rule kept from the prototype: one captured human joins, if there is room for it
+        const room = ZC.team().length < ZC.maxZombies(s.level), spare = ZC.stored().length < ZC.reserveCap();
+        if (room || spare) {
+          const sp = ZC.HUMANS[Math.floor(Math.random() * ZC.HUMANS.length)];
+          const used = new Set(s.zombies.map(z => z.name)), free = ZC.ZOMBIE_NAMES.filter(n => !used.has(n));
+          const z = ZC.makeStaff(sp, { id: ZC.newId(), tint: true, name: free.length ? free[Math.floor(Math.random() * free.length)] : 'Zumbi ' + s.nextId, role: room ? 'serve' : 'reserve' });
+          if (!room) z.prevRole = 'serve';
+          s.zombies.push(z);
+          res.recruit = z;
+        }
+      }
+      ZC.stat('raids');
       ZC.addXP(res.xp);
-    }
-    s.raidReady[tg.id] = Date.now() + ZC.RAID_COOLDOWN * 1000;
+    } else if (outcome === 'retreat') {
+      res.coins = Math.round(R.taken * C.retreatShare);      // only what was already taken from fallen defenders, and only a share
+      if (res.coins) { ZC.addCoins(res.coins, 'recuo: ' + tg.name); ZC.stat('earned', res.coins); }
+      ZC.stat('retreats');
+    } else ZC.stat('defeats');
+    s.raidReady[tg.id] = s.clock + C.cooldown;
+    s.raid = null;
     ZC.save();
     R.summary = res;
     setTimeout(() => ZC.showRaidResult(res), 1100);
   }
   ZC.retreat = function () {
     if (!R || R.result) return;
-    if (!ZC.raidSent()) { ZC.leaveRaid(); return; }            // nobody went in: leave without penalty
-    finish(false);
+    if (!ZC.raidSent()) {            // nobody went in: leave without any consequence
+      for (const z of ZC.state.zombies) if (z.away === R.id) delete z.away;
+      ZC.state.raid = null; ZC.save(); ZC.leaveRaid(); return;
+    }
+    finish('retreat');
   };
 
   function updateHint(force) {
@@ -282,10 +346,12 @@
     if (!el || !R) return;
     const waiting = R.units.filter(u => u.side === 'z' && !u.sent && u.state !== 'dead').length;
     const foes = R.units.filter(u => u.side === 'h' && u.state !== 'dead').length;
-    const sig = [waiting, foes, R.focus ? 1 : 0, R.result].join();
+    const sig = [waiting, foes, R.focus ? 1 : 0, R.sel ? R.sel.zid : 0, R.result].join();
     if (!force && sig === R.hintSig) return;
     R.hintSig = sig;
-    el.textContent = R.result ? '' : waiting ? 'Toque nos seus zumbis para mandá-los atacar.' : foes ? (R.focus ? 'Foco no inimigo marcado. Toque nele de novo para soltar.' : 'Toque num inimigo para focar o ataque nele.') : 'Devorando os corpos...';
+    el.textContent = R.result ? '' : waiting ? 'Toque nos seus zumbis para mandá-los entrar. Derrote o chefe para vencer.'
+      : R.sel ? `${R.sel.name} selecionado: toque num inimigo para só ele atacar.`
+      : foes ? (R.focus ? 'Todos focam no inimigo marcado. Toque nele de novo para soltar.' : 'Toque num inimigo para todos focarem nele, ou num zumbi seu para dar ordem só a ele.') : 'Devorando os corpos...';
     if (btn) btn.style.display = waiting && !R.result ? '' : 'none';
   }
 
@@ -305,17 +371,17 @@
       if (u.state === 'eat') {
         const c = u.corpse; c.claim = u; c.claimT = R.t;
         u.st += dt;
-        u.hp = Math.min(u.maxHp, u.hp + u.maxHp * EAT_HEAL * dt / EAT_T);
+        u.hp = Math.min(u.maxHp, u.hp + u.maxHp * C.eatHeal * dt / EAT_T); sync(u);
         if (u.st >= EAT_T) {
           c.eaten_ = true; c.eatenAt = R.t; u.eaten++; u.state = 'idle'; u.st = 0; u.corpse = null; u.cd = 0.3;
-          say(u, '+' + Math.round(u.maxHp * EAT_HEAL) + ' vida', '#9dff6a');
+          say(u, '+' + Math.round(u.maxHp * C.eatHeal) + ' energia', '#9dff6a');
         } else if (Math.random() < dt * 14) R.parts.push({ x: c.x + 0.5 + rand(-0.3, 0.3), y: c.y + 0.5 + rand(-0.3, 0.3), t: 0, color: Math.random() < 0.5 ? '#c0392b' : '#7fe04f' });
         continue;
       }
       if (u.state === 'attack') {
         u.st += dt;
         if (!u.hit && u.st > 0.3) { u.hit = true; strike(u); }
-        if (u.st >= ZC.animLength(u.sprite, 'attack_' + u.face)) { u.state = 'idle'; u.st = 0; }
+        if (u.state === 'attack' && u.st >= ZC.animLength(u.sprite, 'attack_' + u.face)) { u.state = 'idle'; u.st = 0; }
         continue;
       }
       if (u.state === 'hurt') { u.st += dt; if (u.st > 0.4) u.state = 'idle'; else continue; }
@@ -326,12 +392,13 @@
       const zAlive = R.units.some(u => u.side === 'z' && u.state !== 'dead');
       const zFighting = R.units.some(u => u.side === 'z' && u.sent && u.state !== 'dead');
       const hAlive = R.units.some(u => u.side === 'h' && u.state !== 'dead');
-      if (!zAlive) finish(false);
+      if (!zAlive) finish('lose');
       else if (!hAlive) {
         R.cleanT += dt;
-        const pending = R.units.some(c => c.side === 'h' && c.state === 'dead' && !c.eaten_);
+        const hungry = R.units.some(z => z.side === 'z' && z.sent && z.state !== 'dead' && z.hp < z.maxHp);
+        const pending = hungry && R.units.some(c => c.side === 'h' && c.state === 'dead' && !c.eaten_ && !c.fled);
         const chewing = R.units.some(c => c.side === 'z' && c.state === 'eat');
-        if (zFighting && ((!pending && !chewing) || R.cleanT > 14)) finish(true);
+        if (zFighting && ((!pending && !chewing) || R.cleanT > 12)) finish('win');
       }
     }
     updateHint(false);
@@ -339,8 +406,9 @@
 
   // ---------- drawing (hooked into the café renderer) ----------
   function drawUnit(ctx, u, t) {
-    const [px, py0] = ZC.iso(u.x + 0.5, u.y + 0.5), py = py0 + 6, s = ZC.ACTOR_SCALE;
+    const [px, py0] = ZC.iso(u.x + 0.5, u.y + 0.5), py = py0 + 6, s = ZC.ACTOR_SCALE * (u.boss ? C.bossScale : 1);
     let alpha = 1;
+    if (u.fled) { alpha = Math.max(0, 1 - u.st / 0.6); if (alpha > 0) ZC.drawSprite(ctx, u.sprite, 'walk_front', R.t, px, py, s, { alpha }); return; }
     if (u.state === 'dead') alpha = u.side === 'h' ? (u.eaten_ ? Math.max(0, 1 - (R.t - u.eatenAt) / 0.5) : 1) : Math.max(0, 1 - Math.max(0, u.st - 1.2) / 0.8);
     if (alpha <= 0) return;
     ctx.globalAlpha = alpha; ZC.shadowEll(ctx, px, py + 1, 19, 8); ctx.globalAlpha = 1;
@@ -353,11 +421,17 @@
     else { anim = 'idle_' + u.dir; at = t + u.phase; }
     ZC.drawSprite(ctx, u.sprite, anim, at, px, py, s, { tint: u.tint, alpha: alpha < 1 ? alpha : null });
     if (u.state === 'dead') return;
-    const bw = 46, p = Math.max(0, u.hp / u.maxHp);
+    const top = u.boss ? py - 94 * C.bossScale : py - 94;
+    if (u.boss) {
+      ZC.drawAccessory(ctx, 'chef', px, py - 72 * C.bossScale, u.dir, t);
+      ctx.font = '12px "Luckiest Guy", Impact, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.fillStyle = '#ff9a8a';
+      ctx.strokeText('CHEFE', px, top - 30); ctx.fillText('CHEFE', px, top - 30);
+    }
+    const bw = u.boss ? 60 : 46, p = Math.max(0, u.hp / u.maxHp);
     ZC.ink(ctx, 2.5);
-    ZC.rrect(ctx, px - bw / 2, py - 94, bw, 9, 4, '#2a2630');
+    ZC.rrect(ctx, px - bw / 2, top - (u.boss ? 22 : 0), bw, 9, 4, '#2a2630');
     ctx.fillStyle = u.side === 'z' ? '#7fe04f' : '#e2483a';
-    ctx.beginPath(); ctx.roundRect(px - bw / 2 + 2, py - 92, (bw - 4) * p, 5, 2); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(px - bw / 2 + 2, top + 2 - (u.boss ? 22 : 0), (bw - 4) * p, 5, 2); ctx.fill();
   }
   function drawRing(ctx, u, color, t, k = 1) {
     const [px, py0] = ZC.iso(u.x + 0.5, u.y + 0.5), py = py0 + 7;
@@ -373,7 +447,8 @@
     for (const u of R.units) {
       const d = u.x + u.y + 1 + (u.state === 'dead' ? -0.2 : 0.05);
       if (u.side === 'z' && !u.sent && u.state !== 'dead') { add(d - 0.02, () => drawRing(ctx, u, '#ffd84a', t)); add(d + 0.01, () => drawMarker(ctx, u, t, null)); }
-      if (u === R.focus) { add(d - 0.02, () => drawRing(ctx, u, '#ff4a3a', t, 1.15)); add(d + 0.01, () => drawMarker(ctx, u, t, 'target')); }
+      if (u === R.focus || (R.sel && R.sel.order === u)) { add(d - 0.02, () => drawRing(ctx, u, '#ff4a3a', t, 1.15)); add(d + 0.01, () => drawMarker(ctx, u, t, 'target')); }
+      if (u === R.sel && u.state !== 'dead') add(d - 0.03, () => drawRing(ctx, u, '#6fd6ff', t, 1.1));
       add(d, () => drawUnit(ctx, u, t));
     }
     add(1e6, () => {
@@ -402,7 +477,7 @@
       ctx.fillStyle = 'rgba(10,6,16,.35)'; ctx.fillRect(0, 0, W, H);
       const big = Math.min(64, W / 7);
       ctx.font = big + 'px "Luckiest Guy", Impact, sans-serif'; ctx.lineWidth = 10; ctx.fillStyle = R.result === 'win' ? '#9dff6a' : '#ff6a5a';
-      const txt = R.result === 'win' ? 'VITÓRIA!' : 'DERROTA';
+      const txt = R.result === 'win' ? 'VITÓRIA!' : R.result === 'retreat' ? 'RECUO' : 'DERROTA';
       ctx.strokeText(txt, W / 2, H / 2); ctx.fillText(txt, W / 2, H / 2);
     }
   };

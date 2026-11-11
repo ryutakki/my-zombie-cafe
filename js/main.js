@@ -50,7 +50,7 @@
     view.placing = null; ZC.renderEditBar();
   };
   ZC.trySell = function (o) {
-    const busy = ZC.objectBusy(o);
+    const busy = ZC.sellBlock(o);
     if (busy) return ZC.toast(busy, 'bad');
     ZC.sellObject(o); view.selected = null; ZC.renderEditBar();
   };
@@ -105,8 +105,8 @@
     }
     if (!p.moving) {
       const price = ZC.ITEMS[p.type].price;
-      if (ZC.state.coins < price) { ZC.cancelPlacing(); return ZC.toast('Moedas insuficientes!', 'bad'); }
-      ZC.addCoins(-price); ZC.placeObject(p.type, x, y); ZC.fx(x + 0.5, y + 0.5, `-${price}`, '#ff8a6a');
+      if (!ZC.spend(price, 'compra: ' + ZC.ITEMS[p.type].name)) { ZC.cancelPlacing(); return ZC.toast('Moedas insuficientes!', 'bad'); }
+      ZC.placeObject(p.type, x, y); ZC.fx(x + 0.5, y + 0.5, `-${price}`, '#ff8a6a');
     } else ZC.placeObject(p.type, x, y, p.moving);
     view.placing = null; view.hover = null; ZC.renderEditBar();
   }
@@ -138,7 +138,21 @@
     return best;
   }
 
-  const NO_FREE_ZOMBIE = () => ZC.toast(ZC.state.zombies.length ? 'Todos os zumbis estão ocupados! Segure um zumbi, arraste até o fogão e solte.' : 'Você não tem zumbis! Infecte um cliente.', 'bad');
+  // the kitchen is the job of whoever has the role "Cozinhar" (the chef, to begin with)
+  const NO_COOK = () => ZC.toast(ZC.rt.zombies.some(a => (ZC.zombieData(a.id) || {}).role === 'cook')
+    ? 'Seu cozinheiro está ocupado. Toque em outro funcionário e escolha Cozinhar, ou arraste-o até o fogão.'
+    : 'Ninguém está na função Cozinhar. Toque num funcionário e escolha Cozinhar, ou arraste-o até o fogão.', 'bad');
+  function tapStove(o) {
+    const st = ZC.stoveStatus(o);
+    if (st === 'empty') {
+      const a = ZC.autoZombie(o, ['cook']);
+      if (!a) return NO_COOK();
+      return ZC.openCookbook(o, a.id);
+    }
+    if (st === 'ready') { const a = ZC.autoZombie(o, ['cook']) || ZC.autoZombie(o); if (a && ZC.cmdStove(a.id, o)) return; }
+    if (st === 'paused') { const a = ZC.autoZombie(o, ['cook']); if (a && ZC.cmdStove(a.id, o)) return; }
+    ZC.openStoveMenu(o);
+  }
 
   function onClick(sx, sy) {
     ZC.closeCustomerMenu();
@@ -160,24 +174,12 @@
     }
     if (hit.type === 'customer') return ZC.openCustomerMenu(hit.a);
     const o = hit.o, cat = ZC.cat(o);
-    if (cat === 'stove') {
-      const st = ZC.stoveStatus(o);
-      if (st === 'empty') {
-        const a = ZC.autoZombie(o);
-        if (!a) return NO_FREE_ZOMBIE();
-        ZC.openCookbook(o, a.id);
-      } else if (st === 'ready') {
-        const a = ZC.autoZombie(o);
-        if (!a) return NO_FREE_ZOMBIE();
-        ZC.cmdCollect(a.id, o);
-      } else if (st === 'spoiled') { ZC.cleanStove(o); ZC.toast('A comida estragou e foi jogada fora.', 'bad'); }
-      else if (st === 'pending') ZC.toast('Um zumbi está indo preparar isso.');
-      else ZC.openStoveMenu(o);
-    } else if (cat === 'counter') {
+    if (cat === 'stove') tapStove(o);
+    else if (cat === 'counter') {
       ZC.toast(o.servings ? `Balcão: ${o.servings} porções de ${ZC.RECIPES[o.recipe].name}.` : 'Balcão vazio. Cozinhe algo!');
-    } else if (cat === 'fridge') ZC.toast('Os zumbis pegam os ingredientes aqui antes de cozinhar.');
+    } else if (cat === 'fridge') ZC.openFridge();
     else if (cat === 'sink') ZC.toast('Os zumbis lavam os pratos sujos aqui.');
-    else if (cat === 'chair' && !ZC.tableFor(o)) ZC.toast('Esta cadeira precisa de uma mesa ao lado.', 'bad');
+    else if (cat === 'chair' && ZC.rt.badSeat[o.id]) ZC.toast('Esta cadeira não recebe clientes: ' + ZC.rt.badSeat[o.id], 'bad');
   }
 
   // a zombie that was carried and let go
@@ -188,11 +190,11 @@
     if (o && ZC.objById(o.id) && !o.hidden) {
       const [fx, fy] = ZC.nearFreeTile(o.x, o.y) || [a.x, a.y];
       ZC.dropZombie(a, fx, fy);
-      const st = ZC.stoveStatus(o);
+      const st = ZC.stoveStatus(o), z = ZC.zombieData(a.id);
+      if (z && z.role !== 'cook') { const why = ZC.setRole(z, 'cook'); if (why) { ZC.toast(why, 'bad'); return; } ZC.toast(`${z.name} agora cozinha.`, 'good'); }
       if (st === 'empty') { a.stun = 60; ZC.openCookbook(o, a.id); }
-      else if (st === 'ready') ZC.cmdCollect(a.id, o);
-      else if (st === 'spoiled') { ZC.cleanStove(o); ZC.toast('A comida estragou e foi jogada fora.', 'bad'); }
-      else ZC.toast('Esse fogão já está ocupado.', 'bad');
+      else if (st === 'ready' || st === 'paused') { a.stun = 0; ZC.cmdStove(a.id, o); }
+      else ZC.openStoveMenu(o);
       return;
     }
     const [x, y] = tileAt(wx, wy);
@@ -277,18 +279,29 @@
     if (act === 'raid') ZC.openRaids();
     if (act === 'menu') ZC.openMenu();
   });
+  document.getElementById('rating').addEventListener('click', () => { if (view.scene === 'cafe') ZC.openReputation(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) ZC.save(); });
   window.addEventListener('pagehide', () => ZC.save());
 
   // ---------- loop ----------
+  // One simulation step. Drawing never changes money, energy or damage: it only reads the state this leaves behind.
+  ZC.tick = function (dt) {
+    ZC.updateCafe(dt);
+    if (view.scene === 'raid') ZC.updateRaid(dt);
+  };
+  // run the simulation without drawing (used by the automated checks)
+  ZC.fastForward = function (seconds, stepSize = 0.05) {
+    for (let t = 0; t < seconds; t += stepSize) ZC.tick(stepSize);
+  };
+  ZC.paused = () => document.hidden || !!ZC.sessionLocked;
   let lastT = performance.now(), saveT = 0, clock = 0;
   function frame(now) {
-    const dt = Math.min(0.1, (now - lastT) / 1000);
+    // a tab that was asleep comes back with a huge gap: it is cut down to one small step, never replayed
+    const dt = ZC.paused() ? 0 : Math.min(ZC.CFG.maxStep, Math.max(0, (now - lastT) / 1000));
     lastT = now; clock += dt;
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    ZC.updateCafe(dt);
+    if (dt > 0) ZC.tick(dt);
     ZC.updateDrag(dt);
-    if (view.scene === 'raid') ZC.updateRaid(dt);
     {
       ctx.fillStyle = '#2f5a28'; ctx.fillRect(0, 0, W, H);
       ctx.save();
@@ -330,11 +343,14 @@
   const fontsReady = document.fonts ? document.fonts.load('20px "Luckiest Guy"').catch(() => {}) : Promise.resolve();
   Promise.all([ZC.loadAssets(p => { fill.style.width = Math.round(p * 100) + '%'; }), fontsReady]).then(() => {
     document.getElementById('loading').classList.add('done');
+    const cutRaid = ZC.resolveInterruptedRaid();
     ZC.resetRuntime();
+    if (cutRaid) setTimeout(() => ZC.toast('A invasão foi interrompida: o esquadrão voltou para casa sem recompensa.'), 800);
     ZC.fitCamera();
     ZC.renderEditBar();
     decorateToolbar();
     requestAnimationFrame(t => { lastT = t; frame(t); });
-    if (!ZC.state.seenIntro) { ZC.state.seenIntro = true; ZC.openMenu(); } else setTimeout(() => ZC.checkDaily(), 700);
+    if (!ZC.state.seenIntro) { ZC.state.seenIntro = true; ZC.openMenu(); }
+    if (ZC.afterBoot) ZC.afterBoot();
   });
 })();

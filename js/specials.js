@@ -6,11 +6,11 @@ window.ZC = window.ZC || {};
 
   // pay = multiplier on the dish price, patience = multiplier on how long they wait, minLevel = when they start showing up
   ZC.SPECIALS = {
-    policial: { name: 'Policial Podre',        sprite: 'thug',          acc: 'cap',   minLevel: 1,  weight: 3, pay: 1.5, patience: 1.3, desc: 'Paga 50% a mais e é bem paciente.' },
-    bruxa:    { name: 'Bruxa do Pântano',      sprite: 'robber',        acc: 'witch', minLevel: 3,  weight: 3, pay: 1.2, toxin: 1,      desc: 'Deixa 1 toxina de gorjeta.' },
-    critico:  { name: 'Crítico Gastronômico',  sprite: 'assassin',      acc: 'chef',  minLevel: 5,  weight: 2, pay: 1.5, xp: 6, mastery: 1, desc: 'Elogia o prato: XP extra e conta como mais uma vez cozinhado.' },
-    popstar:  { name: 'Estrela Pop Defunta',   sprite: 'robber',        acc: 'shades', minLevel: 7, weight: 2, pay: 2,   fans: 2, desc: 'Paga o dobro e chega com 2 fãs.' },
-    magnata:  { name: 'Magnata Pirata',        sprite: 'pirate_leader', acc: 'monocle',   minLevel: 10, weight: 1, pay: 3,   patience: 0.6, desc: 'Paga o triplo, mas não tem paciência.' },
+    policial: { name: 'Policial Podre',        sprite: 'thug',          acc: 'cap',   minLevel: 1,  minRep: 0,   weight: 3, pay: 1.5, patience: 1.3, desc: 'Paga 50% a mais e é bem paciente.' },
+    bruxa:    { name: 'Bruxa do Pântano',      sprite: 'robber',        acc: 'witch', minLevel: 3,  minRep: 2,   weight: 3, pay: 1.2, toxin: 1,      desc: 'Deixa 1 toxina de gorjeta.' },
+    critico:  { name: 'Crítico Gastronômico',  sprite: 'assassin',      acc: 'chef',  minLevel: 5,  minRep: 2.5, weight: 2, pay: 1.5, xp: 6, mastery: 1, critic: true, desc: 'Servido rápido, elogia: XP extra e meia estrela temporária.' },
+    popstar:  { name: 'Estrela Pop Defunta',   sprite: 'robber',        acc: 'shades', minLevel: 7, minRep: 3,  weight: 2, pay: 2,   fans: 2, desc: 'Paga o dobro e chega com 2 fãs.' },
+    magnata:  { name: 'Magnata Pirata',        sprite: 'pirate_leader', acc: 'monocle',   minLevel: 10, minRep: 3.5, weight: 1, pay: 3,   patience: 0.6, desc: 'Paga o triplo, mas não tem paciência.' },
   };
 
   // colour looks (see js/variants.js): flagged `special` so ordinary customers never use them

@@ -243,3 +243,28 @@ canvas#game { display: block; touch-action: none; cursor: pointer; }
   .panel { max-height: calc(100vh - 12px); }
   #cmenu .cbox { padding: 4px 8px 6px; gap: 6px 12px; }
 }
+
+/* ---------- staff, kitchen and reputation additions ---------- */
+#rating { pointer-events: auto; cursor: pointer; font: inherit; color: inherit; position: relative; }
+#rating.bonus { box-shadow: 0 3px 0 var(--ink), 0 0 0 3px var(--gold); }
+#rating .closedtag { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); background: var(--red); color: #fff; border: 2px solid var(--ink); border-radius: 6px; padding: 0 5px; font: 800 9px var(--body); -webkit-text-stroke: 0; }
+.attrs { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
+.attrs .mast canvas, .cinfo .mast canvas { background: transparent !important; display: inline-block !important; }
+.btn.on { background: var(--green); opacity: 1; }
+.roles { display: flex; gap: 4px; flex-wrap: wrap; }
+.roles .btn { padding: 4px 8px; font-size: 12px; }
+.row.dim { background: #efe6da; }
+.row.dim > canvas { filter: grayscale(.8); }
+.tag { display: inline-block; font: 800 10px var(--body); background: #ffe9a8; border: 2px solid var(--ink); border-radius: 7px; padding: 0 5px; vertical-align: 2px; letter-spacing: 0; }
+.tag.loot { background: #ffc7b8; margin-left: 3px; }
+.favb { background: none; border: 0; padding: 0 2px; cursor: pointer; vertical-align: -3px; opacity: .55; }
+.favb.on { opacity: 1; }
+.favb canvas { background: transparent !important; }
+.replog { display: flex; gap: 10px; align-items: center; background: #fff; border: 3px solid var(--ink); border-radius: 12px; padding: 5px 10px; font-weight: 800; }
+.replog b { min-width: 52px; font-family: var(--display); font-weight: normal; }
+.replog.up b { color: var(--green-d); } .replog.down b { color: var(--red); }
+.rep p { margin: 6px 0; } .rep .big { display: flex; align-items: center; gap: 8px; font: 22px var(--display); }
+.rep .acts { display: flex; margin-top: 10px; }
+#lockscreen { position: fixed; inset: 0; z-index: 60; display: grid; place-content: center; justify-items: center; gap: 12px; padding: 20px; text-align: center; background: rgba(20,14,28,.94); color: #fff4dc; }
+#lockscreen h2 { font: 30px var(--display); color: var(--green); margin: 0; }
+#lockscreen p { max-width: 420px; margin: 0; font-weight: 800; }
