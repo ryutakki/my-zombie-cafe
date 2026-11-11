@@ -79,7 +79,7 @@ simular. O relógio real só aparece em dois lugares: a data do prêmio diário 
     ou ordem para um zumbi só, recuo com parte das moedas, derrota, devorar corpos.
 14. **Saque e reanimação**: vitória dá moedas, Toxina, XP e um lote do prato da casa. Pagamento único por
     invasão. Quem cai fica 150 s em reanimação e volta com 20% de energia; Toxina encurta.
-15. **Objetivos e tutorial**: 22 missões; o primeiro capítulo aparece como passo a passo na faixa do topo e
+15. **Objetivos e tutorial**: 24 missões; o primeiro capítulo aparece como passo a passo na faixa do topo e
     só avança com o evento real. Prêmio diário vem de cozinhar no dia.
 16. **Persistência**: salva sozinho; guarda clientes, pratos sujos, o que estava nas mãos, posições, tempos
     restantes. Recarregar não avança nada. Aba escondida não simula. Duas abas: só uma joga e salva.
