@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Zombie Café — Protótipo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="hud">
+    <div class="pill"><i class="ico coin"></i><span id="coins">0</span></div>
+    <div class="pill"><i class="ico toxin"></i><span id="toxin">0</span></div>
+    <div class="pill level" title="Nível e experiência"><b id="lvl">1</b><div class="xpbar"><i id="xpfill"></i></div></div>
+    <div class="pill stars" id="rating"></div>
+  </div>
+  <div id="banner" class="hidden"></div>
+
+  <div id="toolbar">
+    <button data-act="shop" title="Loja" aria-label="Loja"><span class="bi" data-ic="chest"></span>Loja</button>
+    <button data-act="edit" title="Editar" aria-label="Editar"><span class="bi" data-ic="hammer" data-px="34"></span>Editar</button>
+    <button data-act="book" title="Receitas" aria-label="Receitas"><span class="bi" data-ic="book" data-px="34"></span>Receitas</button>
+    <button data-act="zombies" title="Zumbis" aria-label="Zumbis"><span class="bi" data-ic="skull" data-px="34"></span>Zumbis</button>
+    <button data-act="raid" class="hot" title="Invasão" aria-label="Invasão"><span class="bi" data-ic="bone" data-px="34"></span>Invasão</button>
+    <button data-act="missions" title="Missões" aria-label="Missões"><span class="bi" data-ic="scroll" data-px="34"></span>Missões<b id="missbadge" style="display:none"></b></button>
+    <button data-act="menu" class="small" title="Menu"><span class="bi" data-ic="menu" data-px="26"></span></button>
+  </div>
+  <div id="editbar" class="hidden"></div>
+  <div id="raidbar" class="hidden"><span id="raidhint"></span><button id="sendall" class="btn buy">Atacar com todos</button><button id="retreat" class="btn ghost">Recuar</button></div>
+  <div id="toasts"></div>
+  <div id="cmenu" class="hidden"></div>
+
+  <div id="modal" class="hidden">
+    <div class="panel">
+      <div class="phead"><h2></h2><button class="x" aria-label="Fechar" data-ic="close" data-px="20"></button></div>
+      <div class="pbody"></div>
+    </div>
+  </div>
+
+  <div id="loading">
+    <h1>ZOMBIE CAFÉ</h1>
+    <p>protótipo</p>
+    <div class="bar"><i></i></div>
+  </div>
+
+  <script src="js/sprites-manifest.js"></script>
+  <script src="js/props-manifest.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/assets.js"></script>
+  <script src="js/variants.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/furniture.js"></script>
+  <script src="js/decor.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/specials.js"></script>
+  <script src="js/cafe.js"></script>
+  <script src="js/drag.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/raid.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

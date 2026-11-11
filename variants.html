@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variações dos personagens</title>
+<link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Nunito:wght@800;900&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; padding: 22px; background: #231d30; color: #f3e6c8; font-family: 'Nunito', sans-serif; }
+  h1 { font: 34px 'Luckiest Guy', Impact, sans-serif; color: #9dff6a; margin: 0 0 4px; -webkit-text-stroke: 1px #17121c; letter-spacing: 1px; }
+  p { margin: 0 0 18px; color: #c9b99a; font-weight: 800; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+  .card { background: #3a2d4a; border: 4px solid #17121c; border-radius: 16px; padding: 10px 10px 12px; box-shadow: 0 5px 0 #17121c; text-align: center; }
+  .card canvas { width: 100%; height: auto; display: block; border-radius: 10px; background: radial-gradient(circle at 50% 70%, #5b4a72, #33283f); }
+  .card b { display: block; margin-top: 8px; font: 18px 'Luckiest Guy', Impact, sans-serif; letter-spacing: .5px; color: #ffd84a; -webkit-text-stroke: .6px #17121c; }
+  .card small { color: #c9b99a; font-weight: 800; }
+</style>
+</head>
+<body>
+<h1>VARIAÇÕES DOS PERSONAGENS</h1>
+<p>Em cada quadro: o personagem original (menor, à esquerda) e a variação (parado e andando).</p>
+<div class="grid" id="grid"></div>
+<script src="js/sprites-manifest.js"></script>
+<script src="js/props-manifest.js"></script>
+<script src="js/data.js"></script>
+<script src="js/assets.js"></script>
+<script src="js/variants.js"></script>
+<script>
+  const ZC = window.ZC;
+  const go = () => ZC.loadAssets(() => {}).then(() => {
+    const grid = document.getElementById('grid');
+    const W = 400, H = 300;
+    for (const [id, v] of Object.entries(ZC.VARIANTS)) {
+      const card = document.createElement('div'); card.className = 'card';
+      const cv = document.createElement('canvas'); cv.width = W; cv.height = H; card.append(cv);
+      const g = cv.getContext('2d');
+      const shadow = (x, y, r) => { g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(x, y, r, r * 0.34, 0, 0, Math.PI * 2); g.fill(); };
+      shadow(70, 262, 36); ZC.drawSprite(g, v.base, 'idle_front', 0.1, 70, 258, 0.62);          // original
+      shadow(190, 270, 52); ZC.drawSprite(g, v.base, 'idle_front', 0.1, 190, 266, 1.0, { tint: id });   // variation, standing
+      shadow(320, 270, 52); ZC.drawSprite(g, v.base, 'walk_left', 0.18, 320, 266, 1.0, { tint: id });    // variation, walking
+      g.fillStyle = '#c9b99a'; g.font = '800 14px Nunito, sans-serif'; g.textAlign = 'center'; g.fillText('original', 70, 24);
+      const name = document.createElement('b'); name.textContent = v.name;
+      const sub = document.createElement('small'); sub.textContent = ZC.UNITS[v.base].name;
+      card.append(name, sub); grid.append(card);
+    }
+    document.title = 'Variações dos personagens (pronto)';
+  });
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(go);
+
+  // one flat picture of every variation (for sharing): ?sheet=1 posts it to a local receiver
+  window.makeSheet = function () {
+    const ids = Object.keys(ZC.VARIANTS), cols = 5, cw = 400, ch = 330, gap = 16, top = 78;
+    const cv = document.createElement('canvas');
+    cv.width = cols * cw + (cols + 1) * gap; cv.height = top + Math.ceil(ids.length / cols) * (ch + gap) + gap;
+    const g = cv.getContext('2d');
+    g.fillStyle = '#231d30'; g.fillRect(0, 0, cv.width, cv.height);
+    g.font = '40px "Luckiest Guy", Impact, sans-serif'; g.textAlign = 'left'; g.lineWidth = 6; g.strokeStyle = '#17121c'; g.fillStyle = '#9dff6a';
+    g.strokeText('VARIAÇÕES DOS PERSONAGENS', gap + 4, 52); g.fillText('VARIAÇÕES DOS PERSONAGENS', gap + 4, 52);
+    ids.forEach((id, i) => {
+      const v = ZC.VARIANTS[id], x = gap + (i % cols) * (cw + gap), y = top + Math.floor(i / cols) * (ch + gap);
+      g.fillStyle = '#17121c'; g.beginPath(); g.roundRect(x, y + 5, cw, ch, 18); g.fill();
+      g.fillStyle = '#3a2d4a'; g.strokeStyle = '#17121c'; g.lineWidth = 4; g.beginPath(); g.roundRect(x, y, cw, ch, 18); g.fill(); g.stroke();
+      const pan = g.createRadialGradient(x + cw / 2, y + 200, 10, x + cw / 2, y + 200, 230); pan.addColorStop(0, '#6a5584'); pan.addColorStop(1, '#33283f');
+      g.fillStyle = pan; g.beginPath(); g.roundRect(x + 10, y + 10, cw - 20, 230, 12); g.fill();
+      const shadow = (sx, sy, r) => { g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(sx, sy, r, r * 0.34, 0, 0, Math.PI * 2); g.fill(); };
+      shadow(x + 70, y + 208, 36); ZC.drawSprite(g, v.base, 'idle_front', 0.1, x + 70, y + 204, 0.62);
+      shadow(x + 190, y + 218, 52); ZC.drawSprite(g, v.base, 'idle_front', 0.1, x + 190, y + 214, 1.0, { tint: id });
+      shadow(x + 320, y + 218, 52); ZC.drawSprite(g, v.base, 'walk_left', 0.18, x + 320, y + 214, 1.0, { tint: id });
+      g.fillStyle = '#c9b99a'; g.font = '800 14px Nunito, sans-serif'; g.textAlign = 'center'; g.fillText('original', x + 70, y + 32);
+      g.font = '24px "Luckiest Guy", Impact, sans-serif'; g.lineWidth = 5; g.strokeStyle = '#17121c'; g.fillStyle = '#ffd84a';
+      g.strokeText(v.name, x + cw / 2, y + 278); g.fillText(v.name, x + cw / 2, y + 278);
+      g.font = '800 15px Nunito, sans-serif'; g.fillStyle = '#c9b99a'; g.fillText('variação de ' + ZC.UNITS[v.base].name, x + cw / 2, y + 306);
+    });
+    return cv;
+  };
+  window.saveSheet = () => fetch('http://localhost:5199/', { method: 'POST', body: makeSheet().toDataURL('image/png') }).then(r => r.text());
+</script>
+</body>
+</html>
