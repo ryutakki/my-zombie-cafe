@@ -10,9 +10,9 @@ window.ZC = window.ZC || {};
     gelo:      { base: 'pirate_zombie', name: 'Zumbi Gelo',         filter: 'hue-rotate(235deg) saturate(1.35)' },
     abissal:   { base: 'squidman',      name: 'Lula Abissal',       filter: 'hue-rotate(85deg) saturate(1.3) brightness(.9)' },
     carmesim:  { base: 'squidman',      name: 'Lula Carmesim',      filter: 'hue-rotate(-95deg) saturate(1.5)' },
-    noturno:   { base: 'robber',        name: 'Ladrão Noturno',     filter: 'hue-rotate(205deg) saturate(1.5) brightness(.55) contrast(1.15)' },
-    ferrugem:  { base: 'thug',          name: 'Brutamontes Ferrugem', filter: 'hue-rotate(-20deg) saturate(1.9) sepia(.35) brightness(.9)' },
-    fantasma:  { base: 'assassin',      name: 'Assassino Fantasma', filter: 'grayscale(.85) hue-rotate(170deg) brightness(1.35) contrast(.9)' },
-    dourado:   { base: 'pirate_leader', name: 'Capitão Dourado',    filter: 'sepia(1) saturate(2.6) hue-rotate(-12deg) brightness(1.12)' },
+    noturno:   { base: 'robber',        name: 'Ladrão Noturno',     filter: 'saturate(.9) brightness(.7) contrast(1.12)' },
+    ferrugem:  { base: 'thug',          name: 'Brutamontes Ferrugem', filter: 'saturate(1.2) sepia(.25) brightness(.92)' },
+    fantasma:  { base: 'assassin',      name: 'Assassino Fantasma', filter: 'grayscale(.55) brightness(1.2) contrast(.95)' },
+    dourado:   { base: 'pirate_leader', name: 'Capitão Dourado',    filter: 'sepia(.55) saturate(1.5) brightness(1.08)' },
   };
 })();

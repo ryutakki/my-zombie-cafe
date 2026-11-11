@@ -147,7 +147,7 @@
     for (const a of rt.zombies) if (a.carry) play += a.carry.kind === 'dish' ? 1 : a.carry.kind === 'batch' ? a.carry.servings : 0;
     play += rt.customers.filter(c => c.state === 'eat' && !c.gone).length;
     for (const b of s.fridge.concat(s.pendingLoot)) play += b.servings;
-    const src = n('p_base') + n('p_made') + n('p_loot'), out = n('p_sold') + n('p_waste') + n('p_study');
+    const src = n('p_base') + n('p_made') + n('p_loot'), out = n('p_sold') + n('p_waste') + n('p_study') + n('p_gift');
     const seats = Object.values(rt.seat), carriers = rt.zombies.filter(a => a.carry && a.task == null && !a.held).length;
     return { src, out, play, ok: src === out + play && s.coins >= 0 && s.toxin >= 0 && new Set(seats).size === seats.length && carriers === 0 };
   };
@@ -162,11 +162,12 @@
   };
   const stoveTier = o => ZC.ITEMS[o.type].tier || 1;
   // can this recipe be cooked on this stove right now? null = yes, otherwise the reason
-  ZC.cookBlock = function (rid, stove) {
-    const R = ZC.RECIPES[rid], s = ZC.state;
+  ZC.cookBlock = function (key, stove) {      // key: a recipe ('grogue') or one of its variants ('grogue:fancy')
+    const D = ZC.DISHES[key], rid = D.base, R = ZC.RECIPES[rid], s = ZC.state;
     if (!ZC.knows(rid)) { const src = ZC.lootSource(rid); return src ? `Receita desconhecida: traga um lote de ${src.name} e estude na geladeira.` : `Aprendida no nível ${R.lvl}.`; }
     if (s.level < R.lvl) return `Precisa do nível ${R.lvl}.`;
     if (stove && stoveTier(stove) < (R.stove || 1)) return `Precisa de um fogão ${ZC.THEMES[(R.stove || 1) - 1].name} ou melhor.`;
+    if (D.v && !ZC.variantOwned(rid, D.v)) return ZC.variantNeed(rid, D.v) || 'Variante ainda bloqueada.';
     return null;
   };
   // own rule: a broke café with no food anywhere may cook the cheapest known recipe for free
@@ -179,11 +180,11 @@
     const food = cafe().objects.some(o => o.servings > 0 || o.cook) || s.fridge.length || rt.zombies.some(a => a.carry && (a.carry.kind === 'dish' || a.carry.kind === 'batch'));
     return food ? null : cheap;
   };
-  ZC.cookCost = rid => (ZC.rescueRecipe() === rid ? 0 : ZC.RECIPES[rid].cost);
+  ZC.cookCost = key => (ZC.rescueRecipe() === key ? 0 : ZC.DISHES[key].cost);
 
   function finishBatch(stove) {
-    const c = stove.cook, R = ZC.RECIPES[c.r];
-    c.st = 'ready'; c.progress = c.total; c.spoil = ZC.spoilTime(R);
+    const c = stove.cook, R = ZC.DISHES[c.r];
+    c.st = 'ready'; c.progress = c.total; c.spoil = ZC.spoilTime(R) * ZC.chefFx('spoil');
     pstat('p_made', c.servings);
     ZC.fx(stove.x + 0.5, stove.y + 0.5, 'Pronto!', '#9dff6a'); ZC.save();
   }
@@ -191,7 +192,7 @@
     const K = CFG.kitchen;
     for (const o of cafe().objects) {
       const c = o.cook; if (!c) continue;
-      const R = ZC.RECIPES[c.r];
+      const R = ZC.DISHES[c.r];
       if (c.st === 'cooking') {
         if (stirred(o)) c.abandon = K.abandon;
         else {
@@ -265,7 +266,7 @@
   function stashBatch(b) {
     const stove = b.stove != null && ZC.objById(b.stove);
     if (stove && !stove.cook && !b.loot) {
-      stove.cook = { id: b.id || ZC.newId(), r: b.r, servings: b.servings, total: ZC.RECIPES[b.r].time, cost: 0, progress: ZC.RECIPES[b.r].time, st: 'ready', spoil: Math.max(20, b.spoil || 60), xpDone: b.xpDone };
+      stove.cook = { id: b.id || ZC.newId(), r: b.r, servings: b.servings, total: ZC.DISHES[b.r].time, cost: 0, progress: ZC.DISHES[b.r].time, st: 'ready', spoil: Math.max(20, b.spoil || 60), xpDone: b.xpDone };
       return 'stove';
     }
     const c = pickCounter(b.r);
@@ -313,7 +314,7 @@
       [x, y] = pick(spots);
     }
     return {
-      aid: rt.nextActor++, id: z.id, kind: 'zombie', sprite: z.sprite, tint: z.tint, acc: z.acc || null,
+      aid: rt.nextActor++, id: z.id, kind: 'zombie', sprite: z.sprite, tint: false, acc: z.acc || null,
       x, y, dir: 'front', speed: 1.7 * ZC.zSpeed(z), state: z.energy <= 0 && !z.chef ? 'collapsed' : 'idle', wanderT: rand(1, 4),
       carry: null, task: null, pending: null, working: null, phase: Math.random() * 5,
     };
@@ -385,7 +386,7 @@
         const c = stove.cook;
         if (!c || c.st !== 'cooking') return;
         rt.stir[stove.id] = rt.time; c.cook = a.id;
-        c.progress += dt / CFG.kitchen.timeScale;
+        c.progress += dt / CFG.kitchen.timeScale * ZC.chefFx('cook');
         drain(a, CFG.kitchen.stirDrain * dt);
         if (c.progress >= c.total) { finishBatch(stove); ZC.zXP(a.id, CFG.staff.xpCook); }
       },
@@ -396,7 +397,7 @@
     const c = stove.cook;
     if (!c || c.st !== 'ready') return false;
     const counter = pickCounter(c.r, a);
-    if (!counter) { note('nocounter', `Nenhum balcão livre para ${ZC.RECIPES[c.r].name}. Compre outro balcão ou espere um esvaziar: o lote fica no fogão e pode estragar.`); return false; }
+    if (!counter) { note('nocounter', `Nenhum balcão livre para ${ZC.DISHES[c.r].name}. Compre outro balcão ou espere um esvaziar: o lote fica no fogão e pode estragar.`); return false; }
     stove.cook = null; delete rt.heading[stove.id];
     a.carry = { kind: 'batch', id: c.id, r: c.r, servings: c.servings, spoil: c.spoil, stove: stove.id, xpDone: c.xpDone, counter: counter.id };
     inbound(counter, c.r, +1);
@@ -409,10 +410,10 @@
     let c = counter;
     if (!ZC.objById(c.id) || c.hidden || (c.servings > 0 && c.recipe !== b.r)) c = pickCounter(b.r, a);
     if (!c) { a.carry = null; const where = stashBatch(b); note('nocounter2', where === 'stove' ? 'O balcão sumiu: o lote voltou para o fogão.' : 'O balcão sumiu: o lote foi guardado na geladeira.'); return true; }
-    const R = ZC.RECIPES[b.r];
+    const R = ZC.DISHES[b.r];
     c.recipe = b.r; c.servings = (c.servings || 0) + b.servings;
     a.carry = null; drain(a, CFG.drain.transfer);
-    if (!b.xpDone && !b.loot) ZC.addXP(R.xp);
+    if (!b.xpDone && !b.loot) ZC.addXP(Math.max(1, Math.round(R.xp * ZC.chefFx('xp'))));
     ZC.fx(c.x + 0.5, c.y + 0.5, `+${b.servings} porções`, '#9cff7a'); ZC.stat('stocked'); ZC.save();
     return true;
   }
@@ -430,7 +431,7 @@
           if (!ZC.objById(stove.id) || !c || c.st !== 'pending') return false;
           c.st = 'cooking'; c.progress = 0; c.abandon = CFG.kitchen.abandon; c.cook = a.id;
           a.carry = null; drain(a, CFG.drain.cookStart);
-          ZC.fx(stove.x + 0.5, stove.y + 0.5, 'Cozinhando!', '#ffd84a'); ZC.stat('cooked'); ZC.addMastery(rid); ZC.save();
+          ZC.fx(stove.x + 0.5, stove.y + 0.5, 'Cozinhando!', '#ffd84a'); ZC.stat('cooked'); ZC.addMastery(ZC.DISHES[rid].base); ZC.save();
           if (ZC.onCooked) ZC.onCooked(rid);
         } },
       ],
@@ -538,7 +539,7 @@
   function assign(a, T) { if (a.task) { abortPending(a); a.pending = T; } else a.task = T; a.stun = 0; }
 
   ZC.cmdCook = function (zid, stove, rid) {
-    const a = ZC.zombieActor(zid), z = ZC.zombieData(zid), R = ZC.RECIPES[rid];
+    const a = ZC.zombieActor(zid), z = ZC.zombieData(zid), R = ZC.DISHES[rid];
     if (!a || !z || !R) return false;
     if (!usable(a)) { ZC.toast(`${z.name} não pode cozinhar agora.`, 'bad'); return false; }
     const why = ZC.cookBlock(rid, stove);
@@ -575,13 +576,13 @@
   ZC.cmdStock = function (batch) {
     const counter = pickCounter(batch.r);
     if (batch.moving) { ZC.toast('Esse lote já está sendo levado.'); return false; }
-    if (!counter) { ZC.toast(`Nenhum balcão livre para ${ZC.RECIPES[batch.r].name}.`, 'bad'); return false; }
+    if (!counter) { ZC.toast(`Nenhum balcão livre para ${ZC.DISHES[batch.r].name}.`, 'bad'); return false; }
     const fridges = objsOf('fridge').filter(f => neighborsFree(f).length);
     if (!fridges.length) { ZC.toast('Nenhuma geladeira acessível.', 'bad'); return false; }
     const a = ZC.autoZombie(fridges[0]);
     if (!a) { ZC.toast('Todos estão ocupados agora. Tente de novo em instantes.', 'bad'); return false; }
     assign(a, makeStockTask(a, batch, nearest(fridges, a), counter));
-    ZC.toast(`${ZC.zombieData(a.id).name} vai levar ${ZC.RECIPES[batch.r].name} ao balcão.`, 'good');
+    ZC.toast(`${ZC.zombieData(a.id).name} vai levar ${ZC.DISHES[batch.r].name} ao balcão.`, 'good');
     return true;
   };
 
@@ -651,7 +652,6 @@
   // ---------- customers ----------
   // states: arrive (walking to the door) -> enter (to the reserved seat) -> wait -> eat -> leave
   //         leave also covers: café full, gave up waiting · flee = panic · infect = being turned
-  const variantsOf = sprite => Object.keys(ZC.VARIANTS).filter(k => ZC.VARIANTS[k].base === sprite && !ZC.VARIANTS[k].special);
   // now and then a unique customer shows up (see js/specials.js): at most two at once, never two of the same kind,
   // and only when the café level and its reputation are good enough for them
   function pickSpecial() {
@@ -668,12 +668,12 @@
   }
   function pickLook(plain) {
     const sid = plain ? null : pickSpecial();
-    if (sid) { const sp = ZC.SPECIALS[sid]; return { sprite: sp.sprite, variant: sp.variant, special: sid }; }
-    const s = ZC.state;
-    if (s.level >= 4 && ZC.rating() >= 3 && Math.random() < 0.05) return { sprite: 'squidman', variant: Math.random() < 0.4 ? pick(variantsOf('squidman')) : null };
-    if (Math.random() < 0.08) return { sprite: 'pirate_leader', variant: pick(variantsOf('pirate_leader')) };
-    const sprite = pick(ZC.HUMANS), vs = variantsOf(sprite);
-    return { sprite, variant: vs.length && Math.random() < 0.5 ? pick(vs) : null };
+    if (sid) { const sp = ZC.SPECIALS[sid]; return { type: sp.sprite, sprite: sp.look, special: sid }; }
+    // there are only five human pictures: prefer the one that is least on show, so the room does not fill with twins
+    const human = () => { const use = {}; for (const c of rt.customers) use[c.sprite] = (use[c.sprite] || 0) + 1; const lo = Math.min(...ZC.HUMAN_LOOKS.map(l => use[l] || 0)); return pick(ZC.HUMAN_LOOKS.filter(l => (use[l] || 0) === lo)); };
+    if (ZC.state.level >= 4 && ZC.rating() >= 3 && Math.random() < 0.05) return { type: 'squidman', sprite: human() };
+    if (Math.random() < 0.08) return { type: 'pirate_leader', sprite: human() };
+    return { type: pick(ZC.HUMANS), sprite: human() };
   }
   function makeCustomer(o) {
     return Object.assign({ aid: rt.nextActor++, kind: 'customer', alpha: 1, dir: 'front', speed: 1.9, state: 'arrive', seat: null, waiter: null, phase: Math.random() * 5 }, o);
@@ -683,10 +683,10 @@
     if (c.closed || rt.customers.length >= S.maxCustomers) return;
     if (!plain && rt.customers.filter(q => q.state === 'arrive').length >= S.maxArriving) return;
     const fromLeft = Math.random() < 0.5, look = pickLook(plain);
-    const cu = makeCustomer({ sprite: look.sprite, variant: look.variant, special: look.special, stats: ZC.rollStats(look.sprite),
+    const cu = makeCustomer({ type: look.type, sprite: look.sprite, special: look.special, stats: ZC.rollStats(look.type),
       x: fromLeft ? -6 : c.w + 6, y: c.h + 7 + (Math.random() < 0.5 ? 0 : 1), alpha: 0, dir: fromLeft ? 'right' : 'left' });
     const sp = cu.special && ZC.SPECIALS[cu.special];
-    cu.maxPatience = cu.patience = (S.patienceBase + ZC.ambience() * S.patiencePerAmbience) * (sp && sp.patience || 1);
+    cu.maxPatience = cu.patience = (S.patienceBase + ZC.ambience() * S.patiencePerAmbience) * (sp && sp.patience || 1) * ZC.chefFx('patience');
     if (!goTo(cu, [[c.doorX, c.h]], false)) return;
     rt.customers.push(cu);
     if (sp) {
@@ -743,7 +743,7 @@
     if (cu.paid) return;
     cu.paid = true;
     const sp = cu.special && ZC.SPECIALS[cu.special];
-    const price = Math.round(ZC.priceOf(cu.dish) * (sp && sp.pay || 1));
+    const price = Math.round(ZC.priceOf(cu.dish) * (sp && sp.pay || 1) * ZC.chefFx('price'));
     const server = ZC.zombieData(cu.servedBy);
     const tip = Math.round(price * ZC.zTip(server) * (cu.speed01 || 0));
     ZC.addCoins(price, 'venda'); if (tip) ZC.addCoins(tip, 'gorjeta');
@@ -810,6 +810,7 @@
     s.clock += dt; rt.time += dt; rt.spawnT -= dt;
     ZC.repTick(dt);
     ZC.staffGlobalTick(dt);
+    ZC.reviewTick(dt); ZC.socialTick(dt);
     // now and then a flask of toxin appears on the floor: tap it before it fades
     rt.pickups = rt.pickups.filter(p => (p.life -= dt) > 0);
     rt.pickT = (rt.pickT == null ? 45 : rt.pickT) - dt;
@@ -847,7 +848,7 @@
   };
 
   // ---------- infecting customers (the way to get new workers) ----------
-  ZC.infectCost = cu => (cu && cu.special ? 5 : cu && cu.sprite === 'squidman' ? 4 : 2);
+  ZC.infectCost = cu => (cu && cu.special ? 5 : cu && cu.type === 'squidman' ? 4 : 2);
   ZC.canInfect = function (cu) {
     const s = ZC.state;
     if (cu.gone || cu.state === 'infect' || cu.state === 'leave' || cu.state === 'flee') return 'Esse cliente já está indo embora.';
@@ -874,7 +875,7 @@
     cu.gone = true;
     const used = new Set(s.zombies.map(z => z.name)), free = ZC.ZOMBIE_NAMES.filter(n => !used.has(n));
     // the recruit keeps what the customer was: same character, same look, the numbers shown on its card
-    const z = ZC.makeStaff(cu.sprite, { id: ZC.newId(), name: free.length ? pick(free) : 'Zumbi ' + s.nextId, tint: true, st: cu.stats });
+    const z = ZC.makeStaff(cu.type, { id: ZC.newId(), name: free.length ? pick(free) : 'Zumbi ' + s.nextId, st: cu.stats });
     if (cu.special) { z.special = cu.special; z.acc = ZC.SPECIALS[cu.special].acc; }
     z.x = Math.round(cu.x); z.y = Math.round(cu.y);
     if (!inCafe(z.x, z.y)) { z.x = c.doorX; z.y = c.h - 1; }
@@ -1019,7 +1020,7 @@
     const f = v => Math.round(v * 100) / 100;
     return {
       customers: rt.customers.filter(c => !c.gone && ['arrive', 'enter', 'wait', 'eat'].includes(c.state)).map(c => ({
-        sprite: c.sprite, variant: c.variant, special: c.special, stats: c.stats, state: c.state, seat: c.seat, x: f(c.x), y: f(c.y), dir: c.dir,
+        type: c.type, sprite: c.sprite, special: c.special, stats: c.stats, state: c.state, seat: c.seat, x: f(c.x), y: f(c.y), dir: c.dir,
         patience: f(c.patience), maxPatience: f(c.maxPatience), eatT: c.eatT, dish: c.dish, servedBy: c.servedBy, speed01: c.speed01, sawFood: c.sawFood })),
       dirty: Object.fromEntries(Object.entries(rt.dirty).map(([id, d]) => [id, { r: d.r, t: f(d.t || 0) }])),
       transit: rt.zombies.filter(a => a.carry && a.carry.kind !== 'bag').map(a => Object.assign({}, a.carry, { counter: null })),
@@ -1047,6 +1048,8 @@
         else if (b.kind === 'dirty' && ZC.objById(b.chair) && !rt.dirty[b.chair]) rt.dirty[b.chair] = { r: b.r, by: null, t: b.t || 0 };
       }
       for (const o of sv.customers || []) {
+        if (!o.type) o.type = ZC.PROFILES[o.sprite] ? o.sprite : 'pirate_zombie';              // saved before customers had a separate look
+        if (!ZC.isChar(o.sprite)) o.sprite = ZC.HUMAN_LOOKS[(o.seat || 0) % ZC.HUMAN_LOOKS.length];
         const cu = makeCustomer(o), ch = cu.seat != null && ZC.objById(cu.seat), c = cafe();
         if (cu.state === 'arrive') { cu.seat = null; if (goTo(cu, [[c.doorX, c.h]], false)) rt.customers.push(cu); continue; }
         if (!ch || rt.seat[ch.id] || !ZC.tableFor(ch)) { if (cu.state === 'eat') pstat('p_waste', 1); continue; }

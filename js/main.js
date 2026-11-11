@@ -91,7 +91,15 @@
     view.scene = 'raid'; ZC.startRaid(target, ids); ZC.fitRaidCamera();
     document.getElementById('raidbar').classList.remove('hidden'); document.getElementById('toolbar').classList.add('hidden'); ZC.renderEditBar();
   };
+  ZC.beginVisit = function (f) {
+    ZC.cancelPlacing(); view.mode = 'play'; view.selected = null; view.selZ = null; ZC.updateBanner(); ZC.closeCustomerMenu();
+    homeCam = { x: cam.x, y: cam.y, z: cam.z };
+    view.scene = 'raid'; ZC.startVisit(f); ZC.fitRaidCamera();
+    document.getElementById('raidbar').classList.remove('hidden'); document.getElementById('toolbar').classList.add('hidden'); ZC.renderEditBar();
+    document.getElementById('retreat').textContent = 'Voltar ao café';
+  };
   ZC.leaveRaid = function () {
+    document.getElementById('retreat').textContent = 'Recuar';
     ZC.endRaid(); view.scene = 'cafe';
     if (homeCam) { cam.x = homeCam.x; cam.y = homeCam.y; cam.z = homeCam.z; homeCam = null; } else ZC.fitCamera();
     document.getElementById('raidbar').classList.add('hidden'); document.getElementById('toolbar').classList.remove('hidden'); ZC.renderEditBar();
@@ -176,7 +184,7 @@
     const o = hit.o, cat = ZC.cat(o);
     if (cat === 'stove') tapStove(o);
     else if (cat === 'counter') {
-      ZC.toast(o.servings ? `Balcão: ${o.servings} porções de ${ZC.RECIPES[o.recipe].name}.` : 'Balcão vazio. Cozinhe algo!');
+      ZC.toast(o.servings ? `Balcão: ${o.servings} porções de ${ZC.DISHES[o.recipe].name}.` : 'Balcão vazio. Cozinhe algo!');
     } else if (cat === 'fridge') ZC.openFridge();
     else if (cat === 'sink') ZC.toast('Os zumbis lavam os pratos sujos aqui.');
     else if (cat === 'chair' && ZC.rt.badSeat[o.id]) ZC.toast('Esta cadeira não recebe clientes: ' + ZC.rt.badSeat[o.id], 'bad');
@@ -277,6 +285,7 @@
     if (act === 'zombies') ZC.openZombies();
     if (act === 'missions') ZC.openMissions();
     if (act === 'raid') ZC.openRaids();
+    if (act === 'friends') ZC.openFriends();
     if (act === 'menu') ZC.openMenu();
   });
   document.getElementById('rating').addEventListener('click', () => { if (view.scene === 'cafe') ZC.openReputation(); });
@@ -304,14 +313,14 @@
     if (dt > 0) ZC.tick(dt);
     ZC.updateDrag(dt);
     {
-      ctx.fillStyle = '#2f5a28'; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#3e7a30'; ctx.fillRect(0, 0, W, H);
       ctx.save();
       ctx.translate(W / 2, H / 2); ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
       if (view.scene === 'raid') ZC.renderRaid(ctx, clock, view, cam, W, H); else ZC.renderCafe(ctx, clock, view, cam, W, H);
       ctx.restore();
       // soft vignette: the world fades out near the edges of what you may see
       const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.42, W / 2, H / 2, Math.max(W, H) * 0.78);
-      g.addColorStop(0, 'rgba(10,8,20,0)'); g.addColorStop(1, 'rgba(10,8,20,.38)');
+      g.addColorStop(0, 'rgba(12,14,24,0)'); g.addColorStop(1, 'rgba(12,14,24,.3)');
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
       if (view.scene === 'raid') ZC.renderRaidOverlay(ctx, W, H);
     }
@@ -331,8 +340,9 @@
       return cv;
     };
     set('shop', item('chest'));
-    set('zombies', ZC.portrait('pirate_zombie', false, 40));
-    set('raid', ZC.portrait('squidman', false, 40));
+    set('zombies', ZC.portrait('z_padrao', false, 40));
+    set('raid', ZC.portrait('z_careca', false, 40));
+    set('friends', ZC.portrait('c_jovem', false, 40));
     const bk = ZC.foodThumb('torta', 40); set('book', bk);
     document.querySelectorAll('[data-ic]').forEach(el => { if (!el.firstChild) el.append(ZC.icon(el.dataset.ic, +el.dataset.px || 22)); });
   }
@@ -342,7 +352,7 @@
   ZC.load();
   ZC.sessionInit();
   const fill = document.querySelector('#loading .bar i');
-  const fontsReady = document.fonts ? document.fonts.load('20px "Luckiest Guy"').catch(() => {}) : Promise.resolve();
+  const fontsReady = document.fonts ? document.fonts.load('600 20px "Fredoka"').catch(() => {}) : Promise.resolve();
   Promise.all([ZC.loadAssets(p => { fill.style.width = Math.round(p * 100) + '%'; }), fontsReady]).then(() => {
     document.getElementById('loading').classList.add('done');
     const cutRaid = ZC.resolveInterruptedRaid();
@@ -352,7 +362,8 @@
     ZC.renderEditBar();
     decorateToolbar();
     requestAnimationFrame(t => { lastT = t; frame(t); });
-    if (!ZC.state.seenIntro) { ZC.state.seenIntro = true; ZC.openMenu(); }
+    if (!ZC.state.chefChosen) { ZC.state.seenIntro = true; ZC.openChefPicker(true); }          // a new game: pick the chef, then see how to play
+    else if (!ZC.state.seenIntro) { ZC.state.seenIntro = true; ZC.openMenu(); }
     if (ZC.afterBoot) ZC.afterBoot();
   });
 })();

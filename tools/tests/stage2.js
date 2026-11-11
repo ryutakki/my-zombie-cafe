@@ -10,22 +10,22 @@ const SEED = `(() => { let a = 12345; Math.random = () => { a |= 0; a = a + 0x6D
     const s = ZC.state, chef = s.zombies.find(z => z.chef);
     ZC.cmdCook(chef.id, ZC.objsOf('stove')[0], 'grogue');
     let cu = null, g = 0;
-    while (!cu && g++ < 600) { ZC.fastForward(0.5); cu = ZC.rt.customers.find(c => c.state === 'wait' && !c.special && c.sprite !== 'squidman'); }
+    while (!cu && g++ < 600) { ZC.fastForward(0.5); cu = ZC.rt.customers.find(c => c.state === 'wait' && !c.special && c.type !== 'squidman'); }
     const card = { stats: cu.stats, sprite: cu.sprite, why: ZC.canInfect(cu), cost: ZC.infectCost(cu) };
     const tox0 = s.toxin, n0 = s.zombies.length;
     const a1 = ZC.startInfect(cu), a2 = ZC.startInfect(cu), a3 = ZC.startInfect(cu);     // triple tap
     const toxMid = s.toxin;
     ZC.fastForward(3);
     const rec = s.zombies[s.zombies.length - 1];
-    const cu2 = (() => { let c = null, g = 0; while (!c && g++ < 600) { ZC.fastForward(0.5); c = ZC.rt.customers.find(q => q.state === 'wait' && !q.special && q.sprite !== 'squidman'); } return c; })();
+    const cu2 = (() => { let c = null, g = 0; while (!c && g++ < 600) { ZC.fastForward(0.5); c = ZC.rt.customers.find(q => q.state === 'wait' && !q.special && q.type !== 'squidman'); } return c; })();
     const tox1 = s.toxin, why2 = ZC.canInfect(cu2), b1 = ZC.startInfect(cu2);
-    return { card, a: [a1, a2, a3], spent: tox0 - toxMid, added: s.zombies.length - n0, rec: { type: rec.type, st: rec.st, tint: rec.tint, lvl: rec.lvl, role: rec.role, name: rec.name },
+    return { card, a: [a1, a2, a3], spent: tox0 - toxMid, added: s.zombies.length - n0, rec: { type: rec.type, st: rec.st, char: ZC.isChar(rec.sprite), lvl: rec.lvl, role: rec.role, name: rec.name },
       sameStats: JSON.stringify(rec.st) === JSON.stringify(card.stats), why2, b1, spent2: tox1 - s.toxin, team: ZC.team().length, cap: ZC.maxZombies(s.level), infected: s.stats.infected, audit: ZC.audit() };
   });
   console.log(JSON.stringify(r));
   check('customer card shows attributes before paying', !!r.card.stats && r.card.why === null, r.card);
   check('three taps charge once and create one worker', r.a.join() === 'true,false,false' && r.spent === r.card.cost && r.added === 1 && r.infected === 1, r);
-  check('recruit keeps the numbers shown on the card', r.sameStats && r.rec.tint === true, r.rec);
+  check('recruit keeps the numbers shown on the card and is drawn with the new zombie', r.sameStats && r.rec.char === true, r.rec);
   check('full team is explained before any spending', /Equipe cheia/.test(r.why2) && r.b1 === false && r.spent2 === 0, [r.why2, r.spent2]);
 
   console.log('\n[2] attributes change results (same café, same food, same seed)');

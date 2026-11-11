@@ -6,24 +6,24 @@ window.ZC = window.ZC || {};
 
   // pay = multiplier on the dish price, patience = multiplier on how long they wait, minLevel = when they start showing up
   ZC.SPECIALS = {
-    policial: { name: 'Policial Podre',        sprite: 'thug',          acc: 'cap',   minLevel: 1,  minRep: 0,   weight: 3, pay: 1.5, patience: 1.3, desc: 'Paga 50% a mais e é bem paciente.' },
-    bruxa:    { name: 'Bruxa do Pântano',      sprite: 'robber',        acc: 'witch', minLevel: 3,  minRep: 2,   weight: 3, pay: 1.2, toxin: 1,      desc: 'Deixa 1 toxina de gorjeta.' },
-    critico:  { name: 'Crítico Gastronômico',  sprite: 'assassin',      acc: 'chef',  minLevel: 5,  minRep: 2.5, weight: 2, pay: 1.5, xp: 6, mastery: 1, critic: true, desc: 'Servido rápido, elogia: XP extra e meia estrela temporária.' },
-    popstar:  { name: 'Estrela Pop Defunta',   sprite: 'robber',        acc: 'shades', minLevel: 7, minRep: 3,  weight: 2, pay: 2,   fans: 2, desc: 'Paga o dobro e chega com 2 fãs.' },
-    magnata:  { name: 'Magnata Pirata',        sprite: 'pirate_leader', acc: 'monocle',   minLevel: 10, minRep: 3.5, weight: 1, pay: 3,   patience: 0.6, desc: 'Paga o triplo, mas não tem paciência.' },
+    policial: { name: 'Policial Podre',        sprite: 'thug',          look: 'z_grandalhao',          acc: 'cap',   minLevel: 1,  minRep: 0,   weight: 3, pay: 1.5, patience: 1.3, desc: 'Paga 50% a mais e é bem paciente.' },
+    bruxa:    { name: 'Bruxa do Pântano',      sprite: 'robber',        look: 'z_mulher',        acc: 'witch', minLevel: 3,  minRep: 2,   weight: 3, pay: 1.2, toxin: 1,      desc: 'Deixa 1 toxina de gorjeta.' },
+    critico:  { name: 'Crítico Gastronômico',  sprite: 'assassin',      look: 'z_careca',      acc: 'chef',  minLevel: 5,  minRep: 2.5, weight: 2, pay: 1.5, xp: 6, mastery: 1, critic: true, desc: 'Servido rápido, elogia: XP extra e meia estrela temporária.' },
+    popstar:  { name: 'Estrela Pop Defunta',   sprite: 'robber',        look: 'z_adolescente',        acc: 'shades', minLevel: 7, minRep: 3,  weight: 2, pay: 2,   fans: 2, desc: 'Paga o dobro e chega com 2 fãs.' },
+    magnata:  { name: 'Magnata Pirata',        sprite: 'pirate_leader', look: 'z_idoso', acc: 'monocle',   minLevel: 10, minRep: 3.5, weight: 1, pay: 3,   patience: 0.6, desc: 'Paga o triplo, mas não tem paciência.' },
   };
 
   // colour looks (see js/variants.js): flagged `special` so ordinary customers never use them
   const V = ZC.VARIANTS;
-  V.sp_policial = { base: 'thug',          special: true, name: 'Policial Podre',       filter: 'hue-rotate(195deg) saturate(1.7) brightness(.8)' };
-  V.sp_bruxa    = { base: 'robber',        special: true, name: 'Bruxa do Pântano',     filter: 'hue-rotate(250deg) saturate(1.7) brightness(.85)' };
-  V.sp_critico  = { base: 'assassin',      special: true, name: 'Crítico Gastronômico', filter: 'grayscale(.75) brightness(1.55) contrast(.9)' };
-  V.sp_popstar  = { base: 'robber',        special: true, name: 'Estrela Pop Defunta',  filter: 'hue-rotate(-70deg) saturate(2.1) brightness(1.2)' };
-  V.sp_magnata  = { base: 'pirate_leader', special: true, name: 'Magnata Pirata',       filter: 'hue-rotate(-40deg) saturate(.8) brightness(.7) contrast(1.2)' };
+  V.sp_policial = { base: 'thug',          special: true, name: 'Policial Podre',       filter: 'saturate(.9) brightness(.82) contrast(1.1)' };
+  V.sp_bruxa    = { base: 'robber',        special: true, name: 'Bruxa do Pântano',     filter: 'hue-rotate(60deg) saturate(.9) brightness(.9)' };
+  V.sp_critico  = { base: 'assassin',      special: true, name: 'Crítico Gastronômico', filter: 'grayscale(.4) brightness(1.3) contrast(.95)' };
+  V.sp_popstar  = { base: 'robber',        special: true, name: 'Estrela Pop Defunta',  filter: 'saturate(1.5) brightness(1.12) hue-rotate(-18deg)' };
+  V.sp_magnata  = { base: 'pirate_leader', special: true, name: 'Magnata Pirata',       filter: 'sepia(.35) brightness(.78) contrast(1.15)' };
   for (const [id, sp] of Object.entries(ZC.SPECIALS)) sp.variant = 'sp_' + id;
 
   // ---------- accessories, painted on the head (x = centre of the head, y = top of the head) ----------
-  const INK = '#17121c';
+  const INK = '#2b2333';
   const stroke = (ctx, w = 2.6) => { ctx.lineWidth = w; ctx.strokeStyle = INK; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; };
   const fillStroke = (ctx, fill, w) => { ctx.fillStyle = fill; ctx.fill(); stroke(ctx, w); ctx.stroke(); };
   const side = dir => dir === 'left' ? -1 : dir === 'right' ? 1 : 0;

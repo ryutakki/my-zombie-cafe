@@ -2,7 +2,8 @@
 // to match the Craftpix characters. Static art is cached to offscreen canvases.
 (() => {
   const ZC = window.ZC;
-  const A = ZC.TW / 2, B = ZC.TH / 2, TAU = Math.PI * 2, INK = '#17121c';
+  const A = ZC.TW / 2, B = ZC.TH / 2, TAU = Math.PI * 2, INK = '#2b2333';
+  const OL = 0.55;   // outline weight: the animated characters have thin outlines, the world follows them
   ZC.INK = INK;
   const P = (u, v, z = 0) => [(u - v) * A, (u + v) * B - z];
   const lerp = (p, q, f) => [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f];
@@ -27,16 +28,16 @@
   function poly(ctx, pts, fill, lw = 3) {
     path(ctx, pts);
     if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-    if (lw) { ctx.lineWidth = lw; ctx.strokeStyle = INK; ctx.lineJoin = 'round'; ctx.stroke(); }
+    if (lw) { ctx.lineWidth = lw * OL; ctx.strokeStyle = INK; ctx.lineJoin = 'round'; ctx.stroke(); }
   }
   function ell(ctx, x, y, rx, ry, fill, lw = 3) {
     ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU);
     if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-    if (lw) { ctx.lineWidth = lw; ctx.strokeStyle = INK; ctx.stroke(); }
+    if (lw) { ctx.lineWidth = lw * OL; ctx.strokeStyle = INK; ctx.stroke(); }
   }
   function stroke2(ctx, pts, col, lw = 3, inkw = 3) { // outlined thick line
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    for (const [c, w] of [[INK, lw + inkw * 2 - 2], [col, lw]]) {
+    for (const [c, w] of [[INK, lw + (inkw * 2 - 2) * OL], [col, lw]]) {
       ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath();
       pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke();
     }
@@ -62,7 +63,7 @@
     ctx.lineTo(cx + rx, cy - z1);
     ctx.ellipse(cx, cy - z1, rx, ry, 0, 0, Math.PI, false);
     ctx.closePath();
-    ctx.fillStyle = g; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = INK; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.fillStyle = g; ctx.fill(); ctx.lineWidth = lw * OL; ctx.strokeStyle = INK; ctx.lineJoin = 'round'; ctx.stroke();
     if (c.top) ell(ctx, cx, cy - z1, rx, ry, c.top, lw);
     return { cx, cy, rx, ry, z0, z1 };
   }
@@ -121,13 +122,13 @@
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
   }
 
-  ZC.ink = (ctx, w = 3) => { ctx.lineWidth = w; ctx.strokeStyle = INK; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; };
+  ZC.ink = (ctx, w = 3) => { ctx.lineWidth = w * OL; ctx.strokeStyle = INK; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; };
   ZC.rrect = (ctx, x, y, w, h, r, fill, stroke = true) => {
     ctx.beginPath(); ctx.roundRect(x, y, w, h, r);
     if (fill) { ctx.fillStyle = fill; ctx.fill(); }
     if (stroke) ctx.stroke();
   };
-  ZC.shadowEll = (ctx, x, y, rx, ry) => { ctx.fillStyle = 'rgba(10,5,15,.28)'; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); ctx.fill(); };
+  ZC.shadowEll = (ctx, x, y, rx, ry) => { ctx.fillStyle = 'rgba(14,10,24,.24)'; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); ctx.fill(); };
   ZC.prim = { P, A, B, TAU, INK, lerp, path, poly, ell, stroke2, shadow, box, cyl, lines, speck, planks, hoop, clipEll, skull, bone, gem, glowDot, bc, mix, lite, dark, rng };
 
   // ---------- painter registry ----------
@@ -256,7 +257,7 @@
       const c = P(0, 0, 28); ell(ctx, c[0], c[1], 26, 13, '#25222b', 2.5);
     },
     dyn(ctx, o, t, v) {
-      const st = ZC.stoveStatus(o), R = o.cook && ZC.RECIPES[o.cook.r], busy = st === 'cooking' || st === 'pending';
+      const st = ZC.stoveStatus(o), R = o.cook && ZC.DISHES[o.cook.r], busy = st === 'cooking' || st === 'pending';
       if (busy) { // fire inside the oven
         const q = P(0, 0.43, 4); const fl = Math.sin(t * 16) * 2.5;
         ctx.fillStyle = '#ff9a2a'; ctx.beginPath(); ctx.moveTo(q[0] - 12, q[1]); ctx.lineTo(q[0] - 6, q[1] - 14 - fl); ctx.lineTo(q[0], q[1] - 6); ctx.lineTo(q[0] + 6, q[1] - 16 + fl); ctx.lineTo(q[0] + 12, q[1]); ctx.closePath(); ctx.fill();
@@ -266,7 +267,7 @@
       const g = cyl(ctx, 0, 0, 0.27, 28, 46, { side: pot, top: dark(pot, 0.35) });
       ell(ctx, g.cx, g.cy - 46, g.rx - 3, g.ry - 2, '#1a1820', 0);
       let liquid = null;
-      if (busy || st === 'ready' || st === 'paused') liquid = st === 'pending' ? '#4a4452' : ZC.FOOD_COLOR[o.cook.r] || '#8a6a3a';
+      if (busy || st === 'ready' || st === 'paused') liquid = st === 'pending' ? '#4a4452' : ZC.FOOD_COLOR[ZC.DISHES[o.cook.r].base] || '#8a6a3a';
       if (st === 'spoiled') liquid = '#4f4a2a';
       if (liquid) {
         ell(ctx, g.cx, g.cy - 45, g.rx - 4, g.ry - 3, liquid, 0);
@@ -515,9 +516,12 @@
       for (const dx of [-0.7, 0.7, 0.2]) ell(ctx, x + dx * r, y + r * 0.1, r * 0.14, r * 0.07, '#5fb840', 1);
     },
   };
-  ZC.drawFood = function (ctx, rid, x, y, r) {
+  // rid is a dish key: 'grogue' or 'grogue:fancy'. A coloured bead on the rim of the plate says which variant it is.
+  ZC.drawFood = function (ctx, key, x, y, r) {
+    const [rid, v] = String(key).split(':');
     plate(ctx, x, y, r);
     (FOOD[rid] || FOOD.ensopado)(ctx, x, y, r);
+    if (v && ZC.RVAR[v]) ell(ctx, x + r * 0.78, y - r * 0.12, r * 0.2, r * 0.2, ZC.RVAR[v].color, Math.max(1, r * 0.1));
   };
   ZC.drawDirtyPlate = function (ctx, x, y, r) {
     plate(ctx, x, y, r);

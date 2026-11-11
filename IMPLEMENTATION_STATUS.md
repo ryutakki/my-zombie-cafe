@@ -8,81 +8,90 @@ Este arquivo diz o que está pronto, como foi verificado, o que falta e por onde
 | Etapa | Estado | Verificação automática |
 | --- | --- | --- |
 | 1 Café mínimo | Concluída | `stage1.js`: 28 verificações |
-| 2 Equipe | Concluída | `stage2.js`: 24 verificações |
-| 3 Progressão | Concluída | `stage3.js`: 31 verificações |
-| 4 Invasões | Concluída | `stage4.js`: 23 verificações |
-| 5 Persistência e tutorial | Concluída, sem servidor (ver pendências) | `stage5.js`: 18 verificações |
-| 6 Conteúdo e social | Não iniciada | |
-| Redesign visual com os sprites novos | Não iniciado: PRÓXIMA TAREFA | |
+| 2 Equipe | Concluída | `stage2.js`: 24 |
+| 3 Progressão | Concluída | `stage3.js`: 31 |
+| 4 Invasões | Concluída | `stage4.js`: 23 |
+| 5 Persistência e tutorial | Concluída, sem servidor (ver pendências) | `stage5.js`: 18 |
+| 6 Conteúdo e social | Concluída com amigos NPC (ver "Etapa 6") | `stage6.js`: 37 |
+| Redesign visual | Concluído, com a ressalva dos clientes (ver "Visual") | olhado em capturas de tela |
 
-Também passaram: `ui.js` (todos os menus com cliques reais, 6 verificações) e `soak.js` (15 minutos
-simulados de ações aleatórias, com as contas conferidas 300 vezes).
+Também passaram: `ui.js` (todos os menus com cliques reais, 6 verificações) e `soak.js` (15 minutos simulados
+de ações aleatórias em 19 tipos, com as contas de porções conferidas 300 vezes).
 
 ## Como rodar e testar
 
 - Jogo: `node serve.js` e abrir `http://localhost:5173`.
 - Testes (precisam do Playwright com Chromium e do servidor acima rodando):
-  `node tools/tests/stage1.js` ... `stage5.js`, `node tools/tests/ui.js <pasta para as capturas>`,
+  `node tools/tests/stage1.js` ... `stage6.js`, `node tools/tests/ui.js <pasta para as capturas>`,
   `node tools/tests/soak.js`, `node tools/tests/balance.js` (taxa de vitória por café rival).
 - No console do navegador: `ZC.fastForward(segundos)` roda a simulação sem desenhar; `ZC.audit()` confere se
-  as porções fecham (cozinhadas + saqueadas = vendidas + perdidas + estudadas + em jogo).
+  as porções fecham (cozinhadas + saqueadas = vendidas + perdidas + estudadas + entregues a amigos + em jogo).
 - Alguns cenários dependem de sorte (quem entra primeiro, onde o chef está). Se um falhar uma vez, rode de novo
-  antes de procurar defeito; os que falhavam por isso já foram ajustados.
+  antes de procurar defeito.
+- Os personagens animados são gerados por `python3 tools/build-chars.py` a partir de `assets/personagens_novos/`
+  (as folhas originais enviadas). Ele escreve `assets/chars/` e `js/chars-manifest.js`.
 
 ## Arquitetura (onde mexer)
 
 | Arquivo | Responsabilidade |
 | --- | --- |
-| `js/config.js` | Todos os números de balanceamento e regras que variam entre edições. Tudo ali é proposta. |
-| `js/data.js` | Receitas, móveis, cafés rivais, missões. |
+| `js/config.js` | Todos os números de balanceamento, regras que variam entre edições e os 5 chefs. Tudo ali é proposta. |
+| `js/data.js` | Receitas, as 9 variantes e a tabela de pratos (`ZC.DISHES`), móveis, cafés rivais, missões, quem usa qual visual. |
 | `js/staff.js` | Perfis, atributos, funções, energia, descanso, distração, fome, XP de zumbi, reserva. |
-| `js/state.js` | Save, migração do save antigo, moedas com livro-caixa, receitas conhecidas, reputação, trava de aba. |
+| `js/state.js` | Save, migração, moedas com livro-caixa, receitas conhecidas, reputação, chef, trava de aba. |
 | `js/cafe.js` | Simulação: cozinha, tarefas, comida em trânsito, clientes, geladeira, construção. |
-| `js/raid.js` | Invasões. |
-| `js/ui.js`, `js/render.js` | Menus e desenho. Não decidem dinheiro, energia nem dano. |
+| `js/social.js` | Críticos, amigos NPC, encomendas, pedidos dos amigos. |
+| `js/raid.js` | Invasões e visitas. |
+| `js/assets.js` | Carregamento e desenho dos personagens (`drawChar`: direções isométricas, andar, carregar, trabalhar, atacar, cair). |
+| `js/ui.js`, `js/render.js`, `css/style.css` | Menus e desenho. Não decidem dinheiro, energia nem dano. |
 | `js/main.js` | Laço, câmera, entrada. `ZC.tick(dt)` é o passo da simulação. |
 
 Regra de sessão ativa: `state.clock` só avança com o jogo aberto e visível. Nada lê o relógio real para
 simular. O relógio real só aparece em dois lugares: a data do prêmio diário e o batimento da trava de aba.
 
-## O que cada sistema da especificação tem hoje
+## Etapa 6: o que foi feito
 
-1. **Grade e layout**: comprar, mover (segurar e arrastar), vender, expandir. Validação de caminho ao colocar.
-   Cadeira sem mesa ou inalcançável não vira assento e mostra um cadeado com o motivo. Porta pode ser fechada
-   (painel de Reputação). Falta: girar móveis e guardar móveis num inventário.
-2. **Clientes**: chegar, reservar lugar alcançável, sentar, esperar, comer, pagar uma vez, sujar a mesa, sair.
-   Saídas: lotado, sem lugar, demora, falta de comida, porta fechada, pânico.
-3. **Atendimento e limpeza**: tarefas com reserva de porção e de cliente. Prato sujo antigo passa na frente.
-   Porção, lote e prato sujo em trânsito têm destino quando a tarefa é cancelada.
-4. **Cozinha em lotes**: custo cobrado uma vez; só avança com cozinheiro; pausa; queima por abandono; pronto
-   espera balcão; estraga no fogão. Acelerar com Toxina. Jogar fora é sempre ação explícita.
-5. **Balcão, geladeira, livro**: balcão guarda um prato por vez. Geladeira guarda 2 lotes de saque por
-   unidade; o excedente espera e nunca é perdido. Estudar um lote desconhecido consome o lote e ensina a
-   receita para sempre. Livro separa Disponíveis, Bloqueadas (com o motivo) e Favoritas.
-6. **Infecção**: ficha do cliente com os atributos que ele teria; cobra e cria na mesma chamada; equipe cheia
-   é avisada antes de gastar.
-7. **Atributos**: 6 perfis (Zumbi Comum, Ladrão, Brutamontes, Assassino, Capitão, Homem-Lula) com energia,
-   velocidade, gorjeta, força, tolerância à fome, desgaste e recuperação. Cada recruta varia 10% do perfil.
-8. **Energia**: uma reserva só, usada no café e como vida na invasão. Aviso de cansaço com estimativa,
-   distração, janela de 10 s antes do surto, ataque com fuga dos clientes e queda de reputação, intervalo
-   entre surtos, desabar a zero. Descanso é estado próprio. Cérebro (1 Toxina) enche uma vez.
-9. **Chef, níveis e reserva**: chef não cansa e não vai à reserva. Zumbis têm XP e nível próprios (até 10).
-   Reserva congela a energia e guarda a identidade. Favorito não pode ser dispensado.
-10. **Economia**: moedas e Toxina passam por `ZC.spend`, `ZC.addCoins`, `ZC.addToxin`, com motivo no
-    livro-caixa (`state.ledger`). Preço e gorjeta são lançamentos separados. Sem dinheiro real.
-11. **Reputação**: nota do serviço (0 a 5) separada do nível e da estrela temporária (Crítico Gastronômico).
-    Decoração virou "ambiente" e aumenta a paciência. Reputação controla a frequência de clientes e quem
-    aparece. Toque nas estrelas para ver as causas.
-12. **Loja e desbloqueios**: 13 receitas, 14 cafés rivais, expansões, itens por nível. Algumas receitas exigem
-    fogão melhor.
-13. **Invasões**: mesma equipe (sai do café enquanto luta), energia real como vida, chefe rival, foco geral
-    ou ordem para um zumbi só, recuo com parte das moedas, derrota, devorar corpos.
-14. **Saque e reanimação**: vitória dá moedas, Toxina, XP e um lote do prato da casa. Pagamento único por
-    invasão. Quem cai fica 150 s em reanimação e volta com 20% de energia; Toxina encurta.
-15. **Objetivos e tutorial**: 24 missões; o primeiro capítulo aparece como passo a passo na faixa do topo e
-    só avança com o evento real. Prêmio diário vem de cozinhar no dia.
-16. **Persistência**: salva sozinho; guarda clientes, pratos sujos, o que estava nas mãos, posições, tempos
-    restantes. Recarregar não avança nada. Aba escondida não simula. Duas abas: só uma joga e salva.
+- **5 chefs** (`ZC.CHEFS`), escolhidos numa tela ao começar um jogo novo e trocáveis em Equipe. Só o bônus do
+  chef em serviço vale: Bigodes vende 5% mais caro; Marisa cozinha 12% mais depressa; Seu Zé retarda em 30% o
+  estrago da comida pronta; Tião dá 15% mais XP ao levar um lote ao balcão; Luna deixa os clientes 12% mais
+  pacientes. Todos os números são propostas.
+- **9 variantes de receita** (Rápida, Muito Rápida, Picante, Muito Picante, Fina, Muito Fina, Em Lote, Fresca,
+  Congelada) como dados em cima da receita base, sem nove cozinhas. Cada uma se desbloqueia, para sempre e por
+  receita, cozinhando aquela receita um certo número de vezes (e a versão anterior, no caso das "Muito"). Cada
+  variante tem custo, tempo, porções, preço, XP e prazo de estrago próprios. Um balcão guarda um prato só, e a
+  variante é um prato diferente. Uma bolinha colorida na borda do prato mostra qual é.
+- **Livro** com abas Disponíveis, Bloqueadas, Especiais (receitas de saque) e Favoritas.
+- **Críticos**: de tempos em tempos um crítico oferece uma tarefa que o café consegue cumprir (servir, cozinhar,
+  lavar, descansar, infectar, vencer invasão). Cumprida no prazo, empresta meia estrela por 4 minutos; não
+  acumula com outra. O prazo restante vai no save e não corre com o jogo fechado.
+- **Amigos**: não há servidor, então são 4 cafés vizinhos (NPC) que se liberam por nível. Dá para visitar o café
+  (cena igual à da invasão, sem luta, com o chef cozinhando e a equipe passeando), encomendar pratos (pago na
+  hora, chega uma vez na geladeira depois do tempo; receita que você não conhece pode ser estudada) e atender
+  pedidos deles com porções dos seus balcões (prêmio em moedas e XP, pago uma vez). Encomendas e pedidos
+  são registros no save, apagados antes de pagar.
+- **Reserva e filtros**: a reserva, a ordenação por função, energia e nível, e os favoritos já existiam da etapa 2.
+
+Não feito, de propósito (a especificação os separa do núcleo): PvP, pets, eventos, gacha, fusão, clãs, ranking.
+
+## Visual (redesign)
+
+- **Interface nova**: tema escuro translúcido com destaque verde-zumbi, fonte Fredoka nos títulos e Nunito no
+  texto, cartões arredondados, doca de botões com rótulos à esquerda, caixas de ação flutuantes, sem os
+  contornos grossos e as sombras duras de antes. Tudo está em `css/style.css` (tokens no `:root`).
+- **Mundo**: contorno dos móveis, cenário e ícones mais fino e suave, chão mais claro, fonte Fredoka também no
+  canvas. O contorno é controlado por `OL` em `js/furniture.js` e `js/icons.js`.
+- **Personagens**: os 6 zumbis e os 5 chefs novos substituem TODOS os antigos. Equipe = os 6 zumbis (um por perfil);
+  chef = um dos 5; chef rival de cada invasão = os chefs; clientes e funcionários rivais = os 5 humanos (os chefs);
+  clientes especiais = zumbis famosos com o acessório pintado por cima. Os sprites antigos (`assets/sprites/`)
+  não são mais carregados (`ZC.LOAD_OLD_SPRITES` os traz de volta).
+- **Animações**: andar sem prato usa a pose de "trabalhando" com balanço; carregar comida usa "andando com prato"
+  (o prato já vem na imagem); parado, atingido (piscar branco) e caído/descansando (deitado) são feitos por
+  código, porque não há arte para eles. Atacar usa a folha de ataque, com o quadro de impacto certo.
+- **Ressalva**: os clientes e os defensores rivais são os chefs, então todos usam chapéu de cozinheiro. É o
+  único humano que existe na arte nova. Falta arte de clientes comuns, de defensores e das poses que faltam.
+  Quando chegar, basta gerar com `tools/build-chars.py` (acrescentar em `CHARS`) e trocar `ZC.HUMAN_LOOKS` em
+  `js/data.js`.
+- Móveis, pisos, paredes e decoração continuam desenhados em código, só mais finos e claros.
 
 ## Decisões próprias (não vêm do original)
 
@@ -95,52 +104,27 @@ simular. O relógio real só aparece em dois lugares: a data do prêmio diário 
 - Captura de um humano na vitória foi mantida do protótipo (`CFG.raid.capture`).
 - Maestria de receitas e frascos de toxina no chão foram mantidos do protótipo; não são do núcleo clássico.
 - Prêmio diário por cozinhar no dia (`CFG.daily.trigger`), como o Frequent Fryer.
-- O save antigo (v2) é migrado: ganha um chef, os zumbis viram perfis e os fogões guardam o progresso que
-  tinham quando o jogo foi salvo.
+- Perfis de zumbi: Comum, Adolescente (atendente ligeiro), Grandalhão (resistente), Careca (lutador),
+  Mulher (anfitriã, gorjetas) e Idoso (veterano, raro). Os nomes e as funções estão em `js/staff.js`.
+- O save antigo (v2) é migrado: ganha um chef, os zumbis viram perfis e passam a usar os sprites novos.
 
 ## Pendências conhecidas
 
-- **Servidor**: não existe. A especificação pede validar operações econômicas no servidor; hoje tudo roda no
-  navegador e o save fica no `localStorage`. Quem editar o save manualmente consegue trapacear.
+- **Servidor**: não existe. A especificação pede validar operações econômicas no servidor e uma camada social
+  com outros jogadores; hoje tudo roda no navegador, o save fica no `localStorage` e os amigos são NPC. Quem
+  editar o save manualmente consegue trapacear.
 - **Tempos longos**: receitas de 16 a 40 minutos exigem a aba aberta e um cozinheiro preso ao fogão. Vale
   rever com o jogo na mão; `CFG.kitchen.timeScale` encurta todas de uma vez.
-- **Balanceamento das invasões**: simulado só com jogo automático. Navio (nível 4) e Porto (nível 9) vencem
-  cerca de metade das vezes com a equipe do nível; os outros alvos até o nível 12 vencem sempre, voltando
-  com 30% a 60% de energia.
+- **Balanceamento**: invasões simuladas só com jogo automático (Navio e Porto vencem cerca de metade das
+  vezes). Variantes, bônus dos chefs, recompensas dos amigos e dos críticos nunca foram jogados por uma pessoa.
 - **Clientes do café rival** não aparecem nem fogem durante a invasão.
 - **Girar e guardar móveis** não existe.
-- **Celular**: a faixa do tutorial e as fichas novas não foram conferidas em tela pequena.
-- **Etapa 6**: variantes de receita (Spicy, Fancy, Bulk...), escolha de chef com bônus, críticas com tarefas,
-  amigos, visitas e encomendas. Nada disso tem botão no jogo, de propósito.
+- **Celular**: conferido só na horizontal (844x390). A vertical não foi desenhada.
+- **Sem som.**
+- **Arte**: ver a ressalva dos clientes acima.
 
-## Próxima tarefa: redesign visual com os sprites novos
+## Próxima tarefa
 
-Pedido do dono do projeto: refazer o visual inteiro e combinar com os personagens novos.
-
-Os sprites estão em `assets/personagens_novos/` (cópia das folhas do zip enviado; os quadros soltos e os
-GIFs ficaram de fora por serem repetição):
-- 6 zumbis (`zumbis/zumbi_padrao`, `_mulher`, `_idoso`, `_adolescente`, `_grandalhao`, `_careca`) e 5 chefs
-  humanos (`chefs_humanos/chef_classico`, `_mulher`, `_veterano`, `_barbudo`, `_jovem`).
-- Cada um tem 3 folhas de 1536x1024: `ataque.png`, `trabalhando.png`, `andando_prato.png`. São 6 colunas de
-  tempo e 4 linhas de direção, nesta ordem: frente_esquerda, frente_direita, costas_esquerda, costas_direita.
-  Quadro de 256x256, âncora (128, 240). Durações em `animacoes.json`. `catalogo.png` mostra todos.
-
-O que o jogo espera hoje (ver `js/sprites-manifest.js`, `js/assets.js`, `tools/build-sprites.js`):
-- Uma tira horizontal por animação, com nomes `idle_`, `walk_`, `attack_`, `hurt_` + `front|back|left|right`,
-  e `die`. `ZC.drawSprite(ctx, personagem, anim, t, x, y, escala, opções)`.
-- Direções hoje são 4 retas; os sprites novos são 4 diagonais, que é o certo para a vista isométrica.
-  `ZC.dirName` em `js/data.js` decide a direção a partir do movimento na grade.
-
-Diferenças a resolver:
-- Os novos não têm parado, andando de mãos vazias, atingido nem caído. Sugestão: parado = primeiro quadro de
-  `trabalhando`; andar sem prato precisa de arte nova ou do `andando_prato` como provisório; descansar,
-  desabar e reanimar precisam de pose (hoje usam o último quadro de `die`).
-- `andando_prato` já traz o prato na imagem: desligar o desenho do prato por cima (`drawCarry` em
-  `js/render.js`) para esses personagens.
-- Clientes e inimigos continuam com os sprites antigos (ladrão, brutamontes, assassino, capitão) até
-  existirem versões no estilo novo. O recruta infectado hoje mantém o sprite do cliente com tom verde;
-  decidir se passa a virar um dos 6 zumbis novos.
-- Escolha do chef no começo do jogo: `state.zombies` tem o chef com `chef: true`, `sprite` e `acc`; basta uma
-  tela inicial que grave o sprite escolhido. Bônus por chef é da etapa 6.
-- O visual dos menus está todo em `css/style.css` (variáveis no `:root`) e `index.html`; móveis, pisos e
-  paredes são desenhados em código (`js/furniture.js`, `js/decor.js`, `js/render.js`).
+Jogar de verdade e ajustar números: tempos das receitas, preços das variantes, ritmo dos críticos e dos
+pedidos dos amigos, e a dificuldade das invasões de nível 4 e 9. Depois, os itens da lista de pendências, em
+especial arte própria para clientes e defensores.

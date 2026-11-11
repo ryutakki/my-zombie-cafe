@@ -6,7 +6,7 @@
 (() => {
   const ZC = window.ZC;
   const TAU = Math.PI * 2;
-  const INK = '#17121c';
+  const INK = '#2b2333';
   const C = ZC.CFG.raid;
   const EAT_T = 1.9;                 // seconds a zombie spends devouring one corpse
   const RANGE = 1.35;                // melee reach in tiles
@@ -126,7 +126,7 @@
         : spots.find(([x, y]) => placed.every(([px, py]) => Math.hypot(px - x, py - y) >= 2)) || spots[placed.length];
       at = at || [1, 1];
       placed.push(at);
-      R.units.push(mkUnit('h', sp, false, at[0], at[1], Math.round(u.hp * lvlK * (boss ? C.bossHp : 1)), ZC.ZOMBIE.atk * C.enemyDamage * dmgK * (boss ? C.bossDamage : 1), u.speed,
+      R.units.push(mkUnit('h', ZC.raidLook(tg, i), false, at[0], at[1], Math.round(u.hp * lvlK * (boss ? C.bossHp : 1)), ZC.ZOMBIE.atk * C.enemyDamage * dmgK * (boss ? C.bossDamage : 1), u.speed,
         { home: at, boss, dir: ['front', 'back', 'left', 'right'][Math.floor(Math.random() * 4)] }));
     });
     // the squad leaves the café (nobody is in two places) and waits on the road in front of the rival's door
@@ -137,6 +137,29 @@
     });
     ZC.syncZombies();
     ZC.save();
+    updateHint(true);
+  };
+
+  // ---------- visiting a friend's café: the same scene, nobody fights ----------
+  ZC.startVisit = function (f) {
+    const s = ZC.state;
+    const tg = { id: 'visit_' + f.id, name: f.name, sign: f.sign, lvl: f.lvl, enemies: ['x'], coins: [0, 0], toxin: 0 };
+    const cafe = buildCafe(tg);
+    R = { visit: true, friend: f, target: tg, cafe, blk: new Set(), units: [], fx: [], parts: [], t: 0, result: null, focus: null, sel: null, cleanT: 0, hintSig: '', taken: 0,
+      rt: { customers: [], zombies: [], dirty: {}, seat: {}, claims: {}, washing: {}, badSeat: {}, door: 0, fx: null, extraActors: null } };
+    for (const o of cafe.objects) if (!ZC.ITEMS[o.type].flat) R.blk.add(key(o.x, o.y));
+    R.rt.fx = R.fx; R.rt.extraActors = addUnits;
+    const stoves = cafe.objects.filter(o => ZC.ITEMS[o.type].cat === 'stove');
+    const spots = [];
+    for (let y = 1; y < cafe.h - 1; y++) for (let x = 0; x < cafe.w; x++) if (!R.blk.has(key(x, y)) && x !== cafe.doorX) spots.push([x, y]);
+    spots.sort(() => Math.random() - 0.5);
+    // the chef cooks at a stove, the staff wanders about
+    const sv = stoves[0] || { x: 1, y: 0 }, cookAt = [[sv.x, sv.y + 1], [sv.x + 1, sv.y + 1], [sv.x - 1, sv.y + 1]].find(([x, y]) => !R.blk.has(key(x, y))) || spots[0];
+    R.units.push(mkUnit('h', f.chef, false, cookAt[0], cookAt[1], 100, 0, 1, { home: cookAt, boss: true, work: true, dir: 'back', label: 'Chef ' + f.name.split(' ')[0] }));
+    f.staff.forEach((sp, i) => { const at = spots[i] || [2, 2]; R.units.push(mkUnit('h', sp, false, at[0], at[1], 100, 0, 1, { home: at, label: f.names[i] || 'Zumbi' })); });
+    ZC.state.friends[f.id].visits = (ZC.state.friends[f.id].visits || 0) + 1;
+    ZC.stat('visits');
+    void s;
     updateHint(true);
   };
 
@@ -168,6 +191,10 @@
   };
   ZC.raidClick = function (wx, wy) {
     if (!R || R.result) return;
+    if (R.visit) {       // visiting: tapping somebody says who it is
+      for (const u of R.units) if (unitBox(u, wx, wy)) { ZC.toast(u.label + (u.boss ? ': o chef da casa. Pergunte pelas receitas em Amigos.' : ': trabalha para ' + R.friend.name + '.')); return; }
+      return;
+    }
     let best = null, bd = -1e9;
     for (const u of R.units) if (u.state !== 'dead' && unitBox(u, wx, wy) && u.x + u.y > bd) { bd = u.x + u.y; best = u; }
     if (!best) { R.sel = null; updateHint(true); return; }
@@ -333,6 +360,7 @@
     setTimeout(() => ZC.showRaidResult(res), 1100);
   }
   ZC.retreat = function () {
+    if (R && R.visit) { ZC.leaveRaid(); return; }
     if (!R || R.result) return;
     if (!ZC.raidSent()) {            // nobody went in: leave without any consequence
       for (const z of ZC.state.zombies) if (z.away === R.id) delete z.away;
@@ -349,6 +377,7 @@
     const sig = [waiting, foes, R.focus ? 1 : 0, R.sel ? R.sel.zid : 0, R.result].join();
     if (!force && sig === R.hintSig) return;
     R.hintSig = sig;
+    if (R.visit) { el.textContent = `Visitando o café de ${R.friend.name}. Toque nos funcionários para saber quem são.`; if (btn) btn.style.display = 'none'; return; }
     el.textContent = R.result ? '' : waiting ? 'Toque nos seus zumbis para mandá-los entrar. Derrote o chefe para vencer.'
       : R.sel ? `${R.sel.name} selecionado: toque num inimigo para só ele atacar.`
       : foes ? (R.focus ? 'Todos focam no inimigo marcado. Toque nele de novo para soltar.' : 'Toque num inimigo para todos focarem nele, ou num zumbi seu para dar ordem só a ele.') : 'Devorando os corpos...';
@@ -380,7 +409,7 @@
       }
       if (u.state === 'attack') {
         u.st += dt;
-        if (!u.hit && u.st > 0.3) { u.hit = true; strike(u); }
+        if (!u.hit && u.st > ZC.hitTime(u.sprite)) { u.hit = true; strike(u); }
         if (u.state === 'attack' && u.st >= ZC.animLength(u.sprite, 'attack_' + u.face)) { u.state = 'idle'; u.st = 0; }
         continue;
       }
@@ -388,7 +417,7 @@
       if (R.result) { u.state = u.side === 'z' && !u.sent ? 'wait' : 'idle'; continue; }
       think(u, dt);
     }
-    if (!R.result) {
+    if (!R.result && !R.visit) {
       const zAlive = R.units.some(u => u.side === 'z' && u.state !== 'dead');
       const zFighting = R.units.some(u => u.side === 'z' && u.sent && u.state !== 'dead');
       const hAlive = R.units.some(u => u.side === 'h' && u.state !== 'dead');
@@ -418,13 +447,20 @@
     else if (u.state === 'eat') { anim = 'attack_' + u.face; at = (u.st * 1.4) % ZC.animLength(u.sprite, 'attack_' + u.face); }
     else if (u.state === 'hurt') { anim = 'hurt_' + u.face; at = u.st; }
     else if (u.state === 'walk') { anim = 'walk_' + u.dir; at = t + u.phase; }
-    else { anim = 'idle_' + u.dir; at = t + u.phase; }
+    else { anim = (u.work ? 'work_' : 'idle_') + u.dir; at = t + u.phase; }
     ZC.drawSprite(ctx, u.sprite, anim, at, px, py, s, { tint: u.tint, alpha: alpha < 1 ? alpha : null });
     if (u.state === 'dead') return;
+    if (R.visit) {       // a name tag instead of life bars
+      ctx.font = '700 12px "Nunito", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const w = ctx.measureText(u.label).width + 14, ty = py - (ZC.isChar(u.sprite) ? 100 : 88);
+      ctx.fillStyle = 'rgba(18,23,32,.82)'; ctx.beginPath(); ctx.roundRect(px - w / 2, ty - 9, w, 18, 9); ctx.fill();
+      ctx.fillStyle = '#f3efe5'; ctx.fillText(u.label, px, ty + 0.5);
+      return;
+    }
     const top = u.boss ? py - 94 * C.bossScale : py - 94;
     if (u.boss) {
-      ZC.drawAccessory(ctx, 'chef', px, py - 72 * C.bossScale, u.dir, t);
-      ctx.font = '12px "Luckiest Guy", Impact, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.fillStyle = '#ff9a8a';
+      if (!ZC.isChar(u.sprite)) ZC.drawAccessory(ctx, 'chef', px, py - 72 * C.bossScale, u.dir, t);
+      ctx.font = '600 12px \"Fredoka\", \"Nunito\", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.fillStyle = '#ff9a8a';
       ctx.strokeText('CHEFE', px, top - 30); ctx.fillText('CHEFE', px, top - 30);
     }
     const bw = u.boss ? 60 : 46, p = Math.max(0, u.hp / u.maxHp);
@@ -469,14 +505,14 @@
   // screen-space text over the result
   ZC.renderRaidOverlay = function (ctx, W, H) {
     if (!R) return;
-    ctx.font = '28px "Luckiest Guy", Impact, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '600 28px \"Fredoka\", \"Nunito\", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.lineWidth = 6; ctx.strokeStyle = INK; ctx.fillStyle = '#9dff6a';
-    const title = 'INVASÃO: ' + R.target.name.toUpperCase();
+    const title = (R.visit ? 'VISITA: ' : 'INVASÃO: ') + R.target.name.toUpperCase();
     ctx.strokeText(title, W / 2, 112); ctx.fillText(title, W / 2, 112);
     if (R.result) {
       ctx.fillStyle = 'rgba(10,6,16,.35)'; ctx.fillRect(0, 0, W, H);
       const big = Math.min(64, W / 7);
-      ctx.font = big + 'px "Luckiest Guy", Impact, sans-serif'; ctx.lineWidth = 10; ctx.fillStyle = R.result === 'win' ? '#9dff6a' : '#ff6a5a';
+      ctx.font = '600 ' + big + 'px \"Fredoka\", \"Nunito\", sans-serif'; ctx.lineWidth = 10; ctx.fillStyle = R.result === 'win' ? '#9dff6a' : '#ff6a5a';
       const txt = R.result === 'win' ? 'VITÓRIA!' : R.result === 'retreat' ? 'RECUO' : 'DERROTA';
       ctx.strokeText(txt, W / 2, H / 2); ctx.fillText(txt, W / 2, H / 2);
     }

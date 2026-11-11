@@ -2,10 +2,10 @@
 // ZC.icon(name, px) -> <canvas> element, ZC.iconURL(name) -> data URL, ZC.drawIcon(ctx, name, x, y, size) -> centred on (x, y).
 (() => {
   const ZC = window.ZC;
-  const INK = '#17121c', TAU = Math.PI * 2, N = 128;   // icons are authored on a 64 x 64 grid
+  const INK = '#2b2333', TAU = Math.PI * 2, N = 128, OL = 0.6;   // icons are authored on a 64 x 64 grid
   const P = {};
 
-  const outline = (g, w = 3.5) => { g.lineWidth = w; g.strokeStyle = INK; g.lineJoin = 'round'; g.lineCap = 'round'; };
+  const outline = (g, w = 3.5) => { g.lineWidth = w * OL; g.strokeStyle = INK; g.lineJoin = 'round'; g.lineCap = 'round'; };
   const fillStroke = (g, fill, w = 3.5) => { if (fill) { g.fillStyle = fill; g.fill(); } outline(g, w); g.stroke(); };
   const rrect = (g, x, y, w, h, r, fill, lw = 3.5) => { g.beginPath(); g.roundRect(x, y, w, h, r); fillStroke(g, fill, lw); };
   const circ = (g, x, y, r, fill, lw = 3.5) => { g.beginPath(); g.arc(x, y, r, 0, TAU); fillStroke(g, fill, lw); };
@@ -13,7 +13,7 @@
   const poly = (g, pts, fill, lw = 3.5) => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); fillStroke(g, fill, lw); };
   const line2 = (g, pts, col, w, inkExtra = 4) => { // outlined thick stroke
     g.lineCap = 'round'; g.lineJoin = 'round';
-    for (const [c, lw] of [[INK, w + inkExtra], [col, w]]) { g.strokeStyle = c; g.lineWidth = lw; g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke(); }
+    for (const [c, lw] of [[INK, w + inkExtra * OL], [col, w]]) { g.strokeStyle = c; g.lineWidth = lw; g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke(); }
   };
   const gloss = (g, x, y, r, a0, a1) => { g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 3; g.lineCap = 'round'; g.beginPath(); g.arc(x, y, r, a0, a1); g.stroke(); };
 

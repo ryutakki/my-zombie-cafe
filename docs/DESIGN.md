@@ -151,3 +151,9 @@ imitando o estilo (contorno preto grosso, cores chapadas, visual chibi).
 - O jogo passou a rodar num relógio de sessão (`state.clock`): nada cozinha, cansa ou recupera com o jogo fechado. Isso substitui o "progresso em tempo real" das revisões anteriores.
 - Novos arquivos: `js/config.js` (balanceamento), `js/staff.js` (equipe), `tools/tests/` (cenários automáticos).
 - Chef permanente, funções exclusivas, perfis de zumbi com atributos, energia compartilhada entre café e invasão, descanso, distração, surto, reserva, reputação operacional, receitas conhecidas, geladeira com saque, chefe rival, recuo e reanimação, trava de duas abas, tutorial guiado.
+
+## Revisão 13 - redesign e etapa 6
+- Interface refeita (`css/style.css`): tema escuro translúcido, destaque verde-zumbi, Fredoka + Nunito, cartões e doca com rótulos. Contornos do mundo e dos ícones mais finos (`OL` em `js/furniture.js` e `js/icons.js`).
+- Os 6 zumbis e os 5 chefs enviados (`assets/personagens_novos/`, convertidos por `tools/build-chars.py` para `assets/chars/`) substituem todos os personagens antigos. Rodar: `python3 tools/build-chars.py`.
+- Etapa 6 em `js/social.js`: críticos com tarefas, amigos NPC, encomendas e pedidos, visitas. Variantes de receita em `js/data.js` (`ZC.RVAR`, `ZC.DISHES`). Cinco chefs em `js/config.js`.
+- Detalhes, decisões e pendências em `IMPLEMENTATION_STATUS.md`.

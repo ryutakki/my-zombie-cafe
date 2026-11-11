@@ -14,16 +14,16 @@
   function grassPattern(ctx) {
     if (grass) return grass;
     const c = document.createElement('canvas'); c.width = 480; c.height = 240;
-    const g = c.getContext('2d'); g.fillStyle = '#3f7430'; g.fillRect(0, 0, 480, 240);
+    const g = c.getContext('2d'); g.fillStyle = '#4c8a3b'; g.fillRect(0, 0, 480, 240);
     const r = rng(11);
     const wrap = (x, y, fn) => { for (const ox of [-480, 0, 480]) for (const oy of [-240, 0, 240]) fn(x + ox, y + oy); };
     for (let i = 0; i < 70; i++) {
-      const x = r() * 480, y = r() * 240, rx = 18 + r() * 42, col = r() < 0.5 ? '#4b8736' : '#3b6f2c';
+      const x = r() * 480, y = r() * 240, rx = 18 + r() * 42, col = r() < 0.5 ? '#58963f' : '#437f33';
       wrap(x, y, (px, py) => { g.fillStyle = col; g.beginPath(); g.ellipse(px, py, rx, rx * 0.5, 0, 0, TAU); g.fill(); });
     }
     g.lineCap = 'round';
     for (let i = 0; i < 360; i++) {
-      const x = r() * 480, y = r() * 240, col = r() < 0.5 ? '#5da044' : '#2f5e24';
+      const x = r() * 480, y = r() * 240, col = r() < 0.5 ? '#6bb04e' : '#37692a';
       wrap(x, y, (px, py) => { g.strokeStyle = col; g.lineWidth = 2; g.beginPath(); g.moveTo(px, py); g.lineTo(px - 2, py - 5); g.moveTo(px + 3, py); g.lineTo(px + 4, py - 4); g.stroke(); });
     }
     // clover / tiny flowers / pebbles for texture
@@ -300,7 +300,8 @@
 
   function drawCarry(ctx, a, px, py, t) {
     const c = a.carry; if (!c) return;
-    const bob = Math.sin(t * 8) * 1.5;
+    if (ZC.isChar(a.sprite) && (c.kind === 'dish' || c.kind === 'batch')) return;   // already in the character's hands
+    const bob = Math.sin(t * 8) * 1.5 - (ZC.isChar(a.sprite) ? 14 : 0);
     if (c.kind === 'dish' || c.kind === 'batch') ZC.drawFood(ctx, c.r, px, py - 82 + bob, c.kind === 'batch' ? 15 : 12);
     else if (c.kind === 'dirty') ZC.drawDirtyPlate(ctx, px, py - 80 + bob, 12);
     else if (c.kind === 'bag') { ZC.ink(ctx, 3); ZC.rrect(ctx, px - 13, py - 100 + bob, 26, 20, 6, '#b8935a'); ctx.fillStyle = '#e04a5a'; ctx.beginPath(); ctx.arc(px - 4, py - 92 + bob, 3.5, 0, TAU); ctx.fill(); ctx.fillStyle = '#5fb840'; ctx.beginPath(); ctx.arc(px + 5, py - 90 + bob, 3, 0, TAU); ctx.fill(); }
@@ -311,8 +312,8 @@
     const p = 1 - a.infT / 1.7, sh = Math.sin(t * 60) * (1 + p * 2.5);
     ctx.strokeStyle = `rgba(150,255,100,${0.5 * (1 - p) + 0.2})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(px, py + 1, 20 + p * 30, 9 + p * 12, 0, 0, TAU); ctx.stroke();
     const anim = 'idle_' + a.dir;
-    ZC.drawSprite(ctx, a.sprite, anim, t + a.phase, px + sh, py, s, { tint: a.variant || false });
-    ZC.drawSprite(ctx, a.sprite, anim, t + a.phase, px + sh, py, s, { tint: true, alpha: Math.min(1, p * 1.4) });
+    ZC.drawSprite(ctx, a.sprite, anim, t + a.phase, px + sh, py, s, {});
+    ZC.drawSprite(ctx, (ZC.PROFILES[a.type] || ZC.PROFILES.pirate_zombie).sprite, anim, t + a.phase, px + sh, py, s, { alpha: Math.min(1, p * 1.4) });   // the zombie it is turning into
     for (let i = 0; i < 6; i++) {
       const ph = (t * 0.9 + i * 0.37) % 1, bx = px + Math.sin(i * 2.4 + t * 3) * 18, by = py - 10 - ph * 70;
       ctx.globalAlpha = (1 - ph) * 0.9; ctx.fillStyle = '#b6ff7a'; ZC.ink(ctx, 1.5); ctx.beginPath(); ctx.arc(bx, by, 3 + (i % 3), 0, TAU); ctx.fill(); ctx.stroke();
@@ -333,37 +334,42 @@
       ZC.drawSprite(ctx, a.sprite, 'die', 0, px, py, s, { tint: a.tint, frame: -1 });
       ctx.fillStyle = a.resting ? '#bfe6ff' : '#ffb0a0'; ctx.font = 'bold 16px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.strokeStyle = INK; ctx.lineWidth = 3;
       const zy = py - 44 - (t * 10 % 14); ctx.strokeText('z', px + 14 + Math.sin(t * 2) * 3, zy); ctx.fillText('z', px + 14 + Math.sin(t * 2) * 3, zy);
-      if (z) drawEnergy(ctx, z, px, py - 30, a.resting ? '#6fd6ff' : '#e2483a');
+      if (z) drawEnergy(ctx, z, px, py - 34, a.resting ? '#6fd6ff' : '#e2483a');
       return;
     }
     let anim, at = t + a.phase;
-    if (a.working && a.mood !== 'distracted') { anim = 'attack_' + (a.dir === 'left' ? 'left' : 'right'); at = (t * 1.1 + a.phase) % ZC.animLength(a.sprite, anim); }
+    const ch = ZC.isChar(a.sprite), up = ch ? 12 : 0, plate = a.carry && (a.carry.kind === 'dish' || a.carry.kind === 'batch');
+    if (ch) {          // the animated characters: working pose, walking with the plate (it is part of the picture), shuffle, idle
+      if (a.working && a.mood !== 'distracted') anim = 'work_' + a.dir;
+      else if (plate) { anim = 'carry_' + a.dir; if (!a.moving) at = 0; }
+      else anim = (a.moving ? 'walk_' : 'idle_') + a.dir;
+    } else if (a.working && a.mood !== 'distracted') { anim = 'attack_' + (a.dir === 'left' ? 'left' : 'right'); at = (t * 1.1 + a.phase) % ZC.animLength(a.sprite, anim); }
     else anim = (a.moving ? 'walk_' : 'idle_') + a.dir;
     ZC.drawSprite(ctx, a.sprite, anim, at, px, py, s, { tint: a.tint || a.variant, alpha: a.alpha != null && a.alpha < 1 ? Math.max(0, a.alpha) : null });
     if (a.kind === 'zombie') drawCarry(ctx, a, px, py, t);
-    if (a.kind === 'zombie' && a.acc) ZC.drawAccessory(ctx, a.acc, px, py - 72, a.dir, t);
+    if (a.kind === 'zombie' && a.acc) ZC.drawAccessory(ctx, a.acc, px, py - 80, a.dir, t);
     if (z && !z.chef) {   // what the worker is going through, readable without opening a menu
       const pc = ZC.zPct(z), E = ZC.CFG.energy;
       if (a.mood === 'attack' || a.hungerT != null) {            // starving: red pulse and the seconds left to react
         const k = 0.5 + 0.5 * Math.sin(t * 12);
         ctx.strokeStyle = `rgba(255,70,50,${0.5 + 0.5 * k})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(px, py + 1, 26, 11, 0, 0, TAU); ctx.stroke();
-        ZC.ink(ctx, 3); ell(ctx, px, py - 104, 15, 14, '#ff5a45');
+        ZC.ink(ctx, 3); ell(ctx, px, py - 104 - up, 15, 14, '#ff5a45');
         ctx.fillStyle = '#fff'; ctx.font = 'bold 15px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(a.hungerT != null ? String(Math.ceil(a.hungerT)) : '!', px, py - 103);
+        ctx.fillText(a.hungerT != null ? String(Math.ceil(a.hungerT)) : '!', px, py - 103 - up);
       } else if (a.mood === 'distracted') {
-        ZC.ink(ctx, 2.5); ell(ctx, px + 12, py - 98, 12, 11, '#fff9ec'); ZC.drawIcon(ctx, 'dots', px + 12, py - 98, 16);
+        ZC.ink(ctx, 2.5); ell(ctx, px + 12, py - 98 - up, 12, 11, '#fff9ec'); ZC.drawIcon(ctx, 'dots', px + 12, py - 98 - up, 16);
       }
-      if (pc <= E.warn || a.mood) drawEnergy(ctx, z, px, py - 86, pc <= E.distract ? '#e2483a' : '#f2b630');
+      if (pc <= E.warn || a.mood) drawEnergy(ctx, z, px, py - 86 - up, pc <= E.distract ? '#e2483a' : '#f2b630');
     }
     if (a.kind === 'customer' && a.special) {   // unique customer: painted accessory + a bobbing gold star
       const sp = ZC.SPECIALS[a.special], al = a.alpha != null ? Math.max(0, Math.min(1, a.alpha)) : 1;
       ctx.save(); ctx.globalAlpha = al;
-      ZC.drawAccessory(ctx, sp.acc, px, py - 72, a.dir, t);
-      ZC.drawIcon(ctx, 'star', px, py - 118 + Math.sin(t * 3 + a.phase) * 3, 20);
+      ZC.drawAccessory(ctx, sp.acc, px, py - 80, a.dir, t);
+      ZC.drawIcon(ctx, 'star', px, py - 132 + Math.sin(t * 3 + a.phase) * 3, 20);
       ctx.restore();
     }
     if (a.kind === 'customer' && a.vip) {
-      ctx.font = '13px "Luckiest Guy", Impact, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#ffd84a'; ctx.strokeStyle = INK; ctx.lineWidth = 3;
+      ctx.font = '600 13px \"Fredoka\", \"Nunito\", sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#ffd84a'; ctx.strokeStyle = INK; ctx.lineWidth = 3;
       ctx.strokeText('VIP', px, py - 84); ctx.fillText('VIP', px, py - 84);
     }
   }
@@ -438,8 +444,8 @@
       ctx.save(); ctx.translate(sx, sy - WH + 10); ctx.transform(1, 0.5, 0, 1, 0, 0);
       ZC.ink(ctx, 4); ZC.rrect(ctx, -60, -4, 120, 26, 6, '#4a2a1a');
       const sign = c.sign || 'ZOMBIE CAFÉ', glow = c.signColor || '#9dff6a';
-      ctx.font = '19px "Luckiest Guy", Impact, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const sw = ctx.measureText(sign).width; if (sw > 108) ctx.font = Math.floor(19 * 108 / sw) + 'px "Luckiest Guy", Impact, sans-serif';
+      ctx.font = '600 19px \"Fredoka\", \"Nunito\", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const sw = ctx.measureText(sign).width; if (sw > 108) ctx.font = '600 ' + Math.floor(19 * 108 / sw) + 'px \"Fredoka\", \"Nunito\", sans-serif';
       ctx.shadowColor = glow; ctx.shadowBlur = 8 + Math.sin(t * 2) * 4; ctx.fillStyle = glow; ctx.fillText(sign, 0, 10); ctx.shadowBlur = 0;
       ctx.restore();
     });
@@ -563,7 +569,7 @@
       ctx.font = 'bold 13px Nunito, sans-serif'; const w = Math.max(22, ctx.measureText(label).width + 12);
       ZC.ink(ctx, 2.5); ZC.rrect(ctx, cx + 14, cy - 14, w, 19, 9, '#ffd84a'); ctx.fillStyle = INK; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, cx + 14 + w / 2, cy - 4);
     }
-    for (const a of rt.customers) if (a.state === 'wait') { const [px, py] = ZC.iso(a.x + 0.5, a.y + 0.5); drawBubble(ctx, a, px, py + 6 - 14); }
+    for (const a of rt.customers) if (a.state === 'wait') { const [px, py] = ZC.iso(a.x + 0.5, a.y + 0.5); drawBubble(ctx, a, px, py + 6 - 14 - 12); }
     for (const id in rt.badSeat || {}) {   // a chair nobody can use says so
       const o = ZC.objById(+id); if (!o || o.hidden) continue;
       const [cx, cy] = ZC.iso(o.x + 0.5, o.y + 0.5);
@@ -603,7 +609,7 @@
     }
     for (const f of rt.fx) {
       const a = 1 - Math.max(0, f.t - 1) / 0.6; const [fx, fy] = ZC.iso(f.x, f.y);
-      ctx.globalAlpha = a; ctx.font = '19px "Luckiest Guy", Impact, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.globalAlpha = a; ctx.font = '600 19px \"Fredoka\", \"Nunito\", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.lineWidth = 4; ctx.strokeStyle = INK; ctx.fillStyle = f.color; const y = fy - 60 - f.t * 30;
       ctx.strokeText(f.text, fx, y); ctx.fillText(f.text, fx, y); ctx.globalAlpha = 1;
     }

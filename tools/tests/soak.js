@@ -6,19 +6,21 @@ const { open, check, done } = require('./lib');
     const real = setTimeout; window.setTimeout = (f, ms) => (ms === 1100 || ms === 900 ? 0 : real(f, ms));   // no popups
     const s = ZC.state, rnd = n => Math.floor(Math.random() * n), bad = [], acts = {};
     const did = k => { acts[k] = (acts[k] || 0) + 1; };
-    s.coins = 3000; s.toxin = 30;
+    s.coins = 3000; s.toxin = 30; s.level = 6; ZC.addXP(1);
+    s.variants = { grogue: { quick: 1, fancy: 1, bulk: 1 }, ensopado: { spicy: 1, frozen: 1 }, espeto: { fresh: 1 } };
+    for (const f of ZC.FRIENDS) if (f.lvl <= s.level) ZC.addFriend(f);
     let stuckMax = 0;
     for (let step = 0; step < 300; step++) {
       ZC.fastForward(3);
       const chef = s.zombies.find(z => z.chef), stoves = ZC.objsOf('stove');
       for (const o of stoves) {
         const st = ZC.stoveStatus(o);
-        if (st === 'empty' && Math.random() < 0.6) { const a = ZC.autoZombie(o, ['cook']); const can = Object.keys(ZC.RECIPES).filter(x => !ZC.cookBlock(x, o) && ZC.RECIPES[x].time <= 180); if (a && can.length && ZC.cmdCook(a.id, o, can[rnd(can.length)])) did('cook'); }
+        if (st === 'empty' && Math.random() < 0.6) { const a = ZC.autoZombie(o, ['cook']); let can = Object.keys(ZC.RECIPES).filter(x => !ZC.cookBlock(x, o) && ZC.RECIPES[x].time <= 180); can = can.map(x => { const vs = Object.keys((s.variants || {})[x] || {}); return vs.length && Math.random() < 0.4 ? x + ':' + vs[rnd(vs.length)] : x; }).filter(x => !ZC.cookBlock(x, o)); if (a && can.length && ZC.cmdCook(a.id, o, can[rnd(can.length)])) did(can.length ? 'cook' : 'x'); }
         else if (st === 'spoiled') { ZC.cleanStove(o); did('clean'); }
         else if (st === 'cooking' && Math.random() < 0.03) { ZC.cleanStove(o); did('trash'); }
         else if (st === 'cooking' && Math.random() < 0.05 && ZC.speedUp(o)) did('speed');
       }
-      const k = rnd(14), crew = ZC.crew();
+      const k = rnd(19), crew = ZC.crew();
       if (k === 0 && crew.length) { const z = crew[rnd(crew.length)]; if (!ZC.setRole(z, ['serve', 'cook', 'rest', 'reserve'][rnd(4)])) did('role'); }
       if (k === 1) { ZC.setRole(chef, Math.random() < 0.5 ? 'serve' : 'cook'); did('chefrole'); }
       if (k === 2) { const cu = ZC.rt.customers.find(c => !ZC.canInfect(c)); if (cu && ZC.startInfect(cu)) did('infect'); }
@@ -37,6 +39,11 @@ const { open, check, done } = require('./lib');
       }
       if (k === 12 && s.fridge.length) { const bt = s.fridge[rnd(s.fridge.length)]; if (ZC.knows(bt.r) ? ZC.cmdStock(bt) : ZC.studyBatch(bt)) did('fridge'); }
       if (k === 13 && Math.random() < 0.2) { ZC.save(); ZC.resetRuntime(); did('reload'); }
+      if (k === 14) { const fr = ZC.FRIENDS.filter(f => ZC.isFriend(f.id)); if (fr.length) { const f = fr[rnd(fr.length)]; if (!ZC.placeOrder(f.id, f.recipes[rnd(f.recipes.length)])) did('order'); } }
+      if (k === 15) { for (const q of s.requests.slice()) if (!ZC.deliverRequest(q)) did('gift'); for (const f of ZC.FRIENDS) if (ZC.isFriend(f.id)) s.friends[f.id].next = Math.min(s.friends[f.id].next, rnd(40)); }
+      if (k === 16 && ZC.view.scene === 'cafe' && Math.random() < 0.3) { const fr = ZC.FRIENDS.filter(f => ZC.isFriend(f.id)); if (fr.length) { ZC.beginVisit(fr[rnd(fr.length)]); ZC.fastForward(8); ZC.retreat(); did('visit'); } }
+      if (k === 17) { s.review.next = Math.min(s.review.next, 1); if (s.review.cur) ZC.stat(s.review.cur.stat, 1); }
+      if (k === 18 && s.fridge.length && Math.random() < 0.5) { const bt = s.fridge[rnd(s.fridge.length)]; if (ZC.knows(bt.r)) ZC.cmdStock(bt); else ZC.studyBatch(bt); }
       const au = ZC.audit();
       if (!au.ok && bad.length < 3) bad.push({ step, au, last: Object.assign({}, acts) });
       stuckMax = Math.max(stuckMax, ZC.rt.customers.filter(c => c.state === 'wait' && c.patience < -2).length);

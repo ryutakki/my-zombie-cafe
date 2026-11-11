@@ -113,7 +113,7 @@
 
   ZC.openStoveMenu = function (o) {
     if (!o.cook) return;
-    const R = ZC.RECIPES[o.cook.r];
+    const R = ZC.DISHES[o.cook.r];
     const left = h('small', {}), who = h('small', { class: 'cwhy' }), fill = h('i', { style: 'width:0%' }), acts = h('div', { class: 'cacts' });
     showActionBox(ZC.foodThumb(o.cook.r, 44),
       h('div', { class: 'cinfo' }, h('b', {}, `${R.name} · ${o.cook.servings} porções`), left, who, h('div', { class: 'erow' }, h('div', { class: 'ebar' }, fill))), acts);
@@ -146,14 +146,14 @@
   };
 
   ZC.openCustomerMenu = function (cu) {
-    const p = ZC.PROFILES[cu.sprite] || ZC.PROFILES.pirate_zombie, sp = cu.special && ZC.SPECIALS[cu.special];
+    const p = ZC.PROFILES[cu.type] || ZC.PROFILES.pirate_zombie, sp = cu.special && ZC.SPECIALS[cu.special];
     const note = h('small', {}), acts = h('div', { class: 'cacts' });
     showActionBox(
-      ZC.portrait(cu.sprite, cu.variant || false, 44),
+      ZC.portrait(cu.sprite, false, 44), h('span', { class: 'becomes', title: 'Como ele ficaria depois de infectado' }, ic('arrowr', 16)), ZC.portrait(p.sprite, false, 44),
       h('div', { class: 'cinfo' },
-        h('b', {}, sp ? sp.name : cu.variant ? ZC.VARIANTS[cu.variant].name : p.name),
+        h('b', {}, sp ? sp.name : 'Cliente'),
         h('small', {}, `Como zumbi: ${p.job}. ${p.desc}`),
-        attrs(cu.stats, cu.sprite), note),
+        attrs(cu.stats, cu.type), note),
       acts);
     let sig = null;
     const paint = () => {
@@ -311,41 +311,49 @@
   // ---------- cookbook ----------
   // Three different things: knowing a recipe (permanent) · having food of it · being able to cook it (level, stove).
   ZC.toggleFavRecipe = function (rid) { const f = ZC.state.favRecipes || (ZC.state.favRecipes = {}); if (f[rid]) delete f[rid]; else f[rid] = 1; ZC.save(); };
+  const vsel = ZC.vsel = ZC.vsel || {};      // recipe -> variant chosen in the book (a screen choice only: it is not saved)
   ZC.openCookbook = function (stove, zid, spread = 0, tab = 'can') {
     const s = ZC.state, fav = s.favRecipes || {}, z = zid && ZC.zombieData(zid), all = Object.keys(ZC.RECIPES);
     const block = rid => ZC.cookBlock(rid, stove || null);
-    const lists = { can: all.filter(r => !block(r)), locked: all.filter(r => block(r)), fav: all.filter(r => fav[r]) };
+    const lists = { can: all.filter(r => !block(r)), locked: all.filter(r => block(r)), special: all.filter(r => ZC.RECIPES[r].learn === 'loot'), fav: all.filter(r => fav[r]) };
     const rids = lists[tab], per = 6, spreads = Math.max(1, Math.ceil(rids.length / per));
     spread = Math.min(spread, spreads - 1);
     const again = (sp, tb) => ZC.openCookbook(stove, zid, sp, tb);
     const entry = rid => {
-      const r = ZC.RECIPES[rid], why = block(rid), cost = ZC.cookCost(rid), price = ZC.priceOf(rid), profit = r.servings * price - r.cost;
+      const base = ZC.RECIPES[rid], why = block(rid);
+      if (vsel[rid] && !ZC.variantOwned(rid, vsel[rid])) vsel[rid] = null;
+      const key = ZC.dishKey(rid, vsel[rid]), r = ZC.DISHES[key], cost = ZC.cookCost(key), price = ZC.priceOf(key), profit = r.servings * price - r.cost;
       const st = ZC.masteryStars(rid), cnt = ZC.masteryCount(rid), nextAt = ZC.MASTERY.find(n => n > cnt);
+      // variants: the ones you own are buttons; the next one to earn shows what is missing
+      const owned = ZC.RVAR_ORDER.filter(v => ZC.variantOwned(rid, v)), nextV = ZC.RVAR_ORDER.find(v => !ZC.variantOwned(rid, v));
+      const chips = h('div', { class: 'vchips' },
+        owned.length ? h('button', { class: 'vchip' + (!vsel[rid] ? ' on' : ''), onclick: () => { vsel[rid] = null; again(spread, tab); } }, 'Normal') : null,
+        ...owned.map(v => h('button', { class: 'vchip' + (vsel[rid] === v ? ' on' : ''), title: ZC.RVAR[v].desc, onclick: () => { vsel[rid] = v; again(spread, tab); } }, h('i', { style: 'background:' + ZC.RVAR[v].color }), ZC.RVAR[v].name)),
+        nextV && ZC.knows(rid) ? h('span', { class: 'vchip next', title: ZC.RVAR[nextV].desc }, ic('lock', 11), `${ZC.RVAR[nextV].name}: ` + (ZC.variantNeed(rid, nextV) || 'sai no próximo lote').replace('Cozinhe esta receita ', 'cozinhe ').replace(' para liberar.', 'x')) : null);
       return h('div', { class: 'recipe' + (why ? ' locked' : '') },
-        h('div', { class: 'rpic' }, ZC.foodThumb(rid, 66)),
+        h('div', { class: 'rpic' }, ZC.foodThumb(key, 66)),
         h('div', { class: 'rinfo' },
-          h('b', {}, r.name, ' ', h('span', { class: 'tag' }, r.use), r.learn === 'loot' ? h('span', { class: 'tag loot' }, 'Saque') : null,
+          h('b', {}, r.name, ' ', h('span', { class: 'tag' }, base.use), base.learn === 'loot' ? h('span', { class: 'tag loot' }, 'Saque') : null,
             h('button', { class: 'favb' + (fav[rid] ? ' on' : ''), title: 'Favorita', onclick: () => { ZC.toggleFavRecipe(rid); again(spread, tab); } }, ic(fav[rid] ? 'star' : 'starempty', 16))),
-          h('small', { class: 'rdesc' }, r.desc),
+          h('small', { class: 'rdesc' }, base.desc),
           h('div', { class: 'rstats' }, wi('clock', 15, fmtTime(r.time)), wi('plate', 16, r.servings + ' porções'), wi('coin', 15, `custa ${r.cost} · vende a ${price}`),
             h('span', { title: 'Se todas as porções forem vendidas, sem contar gorjetas' }, 'lucro até ' + profit), h('span', {}, r.xp + ' XP'),
             h('span', { class: 'wi mast', title: `Cozinhou ${cnt}x. ` + (nextAt ? `Próxima estrela com ${nextAt}x (+15% por porção).` : 'Maestria máxima!') }, ...[0, 1, 2, 3, 4].map(i => ic(i < st ? 'star' : 'starempty', 15)))),
+          why || owned.length || nextV ? chips : null,
           why ? h('small', { class: 'lock wi' }, ic('lock', 14), why)
-            : stove ? h('button', { class: 'btn buy', disabled: s.coins < cost, onclick: () => { if (ZC.cmdCook(zid, stove, rid)) ZC.closeModal(); } }, 'Cozinhar ', cost ? coin(cost) : 'de graça (emergência)')
+            : stove ? h('button', { class: 'btn buy', disabled: s.coins < cost, onclick: () => { if (ZC.cmdCook(zid, stove, key)) ZC.closeModal(); } }, 'Cozinhar ', cost ? coin(cost) : 'de graça (emergência)')
               : h('small', { class: 'lock' }, 'Toque num fogão vazio para cozinhar')));
     };
     const chunk = rids.slice(spread * per, spread * per + per);
-    const tabs = h('div', { class: 'tabs' }, ...[['can', 'Disponíveis'], ['locked', 'Bloqueadas'], ['fav', 'Favoritas']].map(([k, label]) =>
+    const tabs = h('div', { class: 'tabs' }, ...[['can', 'Disponíveis'], ['locked', 'Bloqueadas'], ['special', 'Especiais'], ['fav', 'Favoritas']].map(([k, label]) =>
       h('button', { class: 'tab' + (k === tab ? ' on' : ''), onclick: () => again(0, k) }, `${label} (${lists[k].length})`)));
-    const book = h('div', { class: 'book' },
-      h('div', { class: 'bpage left' }, ...chunk.slice(0, 3).map(entry), chunk.length ? null : h('p', { class: 'hint' }, tab === 'fav' ? 'Marque a estrela de uma receita para ela aparecer aqui.' : 'Nada por aqui.')),
-      h('div', { class: 'bpage right' }, ...chunk.slice(3).map(entry)));
+    const book = h('div', { class: 'book' }, ...chunk.map(entry), chunk.length ? null : h('p', { class: 'hint' }, tab === 'fav' ? 'Marque a estrela de uma receita para ela aparecer aqui.' : 'Nada por aqui.'));
     const nav = h('div', { class: 'booknav' },
       h('button', { class: 'btn', disabled: spread === 0, onclick: () => again(spread - 1, tab) }, ic('arrowl', 18)),
       h('span', {}, `Página ${spread + 1} de ${spreads}`),
       h('button', { class: 'btn', disabled: spread >= spreads - 1, onclick: () => again(spread + 1, tab) }, ic('arrowr', 18)));
     const note = stove ? h('p', { class: 'bookhint' }, `${z ? z.name : 'O cozinheiro'} busca os ingredientes na geladeira e fica no fogão até o lote ficar pronto. O custo é cobrado uma vez, agora.`)
-      : h('p', { class: 'bookhint' }, 'Para cozinhar, toque num fogão vazio. Receitas de saque são aprendidas estudando, na geladeira, um lote trazido de uma invasão.');
+      : h('p', { class: 'bookhint' }, 'Para cozinhar, toque num fogão vazio. Receitas de saque são aprendidas estudando, na geladeira, um lote trazido de uma invasão. Variantes se liberam cozinhando a mesma receita várias vezes.');
     ZC.openModal('Livro de Receitas', h('div', {}, note, tabs, book, nav), { cls: 'bookpanel', onClose: () => { const a = zid && ZC.zombieActor(zid); if (a && a.stun > 5) a.stun = 0.2; } });
   };
 
@@ -353,7 +361,7 @@
   ZC.openFridge = function () {
     const s = ZC.state, cap = ZC.fridgeCap();
     const row = (b, waiting) => {
-      const R = ZC.RECIPES[b.r], known = ZC.knows(b.r), src = ZC.RAIDS.find(t => t.id === b.from);
+      const R = ZC.DISHES[b.r], known = ZC.knows(R.base), src = ZC.RAIDS.find(t => t.id === b.from);
       return h('div', { class: 'row' },
         ZC.foodThumb(b.r, 56),
         h('div', { class: 'info' }, h('b', {}, `${R.name} · ${b.servings} porções`),
@@ -387,9 +395,10 @@
           h('small', {}, kindName(z) + (z.chef || z.lvl >= mx ? '' : ` · XP ${z.xp}/${ZC.zXpNeed(z)}`)),
           h('small', {}, doingOf(a, z)),
           z.chef ? null : h('div', { class: 'erow' }, h('small', {}, `Energia ${Math.round(z.energy)}/${ZC.zMax(z)}`), ebar(z)),
-          z.chef ? h('small', {}, ZC.PROFILES.chef.desc) : attrs(z.st, z.type, z.lvl)),
+          z.chef ? h('small', {}, 'Bônus: ' + ZC.CHEFS[s.chefId].bonus) : attrs(z.st, z.type, z.lvl)),
         h('div', { class: 'acts' },
           stored || out ? null : h('div', { class: 'roles' }, roleBtn(z, 'serve', again), roleBtn(z, 'cook', again), z.chef ? null : roleBtn(z, 'rest', again)),
+          z.chef ? h('button', { class: 'btn', onclick: () => ZC.openChefPicker(false) }, 'Trocar de chef') : null,
           z.revive > 0 ? h('button', { class: 'btn buy', disabled: s.toxin < ZC.CFG.raid.reviveToxin, onclick: () => { ZC.reviveNow(z); again(); } }, 'Reanimar já ', tox(ZC.CFG.raid.reviveToxin)) : null,
           z.chef || out || stored ? null : h('button', { class: 'btn', disabled: full || s.toxin < 1, title: 'Cérebro: energia cheia na hora', onclick: () => { ZC.feedBrain(z); again(); } }, 'Cérebro ', tox(1)),
           z.chef || out ? null : stored
@@ -406,15 +415,74 @@
       sorts, h('div', { class: 'list' }, ...sorted.map(row))), { cls: 'staffpanel' });
   };
 
+  // ---------- friends ----------
+  ZC.openFriends = function (open = null) {
+    const s = ZC.state, F = ZC.CFG.friends;
+    const again = o => ZC.openFriends(o === undefined ? open : o);
+    const frow = f => {
+      const mine = ZC.isFriend(f.id), locked = s.level < f.lvl, st = s.friends[f.id];
+      const orders = h('div', { class: 'orders' }, ...f.recipes.map(rid => {
+        const R = ZC.RECIPES[rid], known = ZC.knows(rid), cost = ZC.orderCost(rid);
+        return h('div', { class: 'orow' }, ZC.foodThumb(rid, 40),
+          h('div', { class: 'oinfo' }, h('b', {}, R.name), h('small', {}, `${R.servings} porções · chega em ${fmtTime(ZC.orderTime(rid))} · ` + (known ? 'você já conhece' : 'receita nova: dá para estudar o lote'))),
+          h('button', { class: 'btn buy', disabled: s.coins < cost || s.orders.length >= F.orderMax, onclick: () => { const why = ZC.placeOrder(f.id, rid); if (why) ZC.toast(why, 'bad'); else ZC.toast(`Encomenda feita a ${f.name}.`, 'good'); again(); } }, 'Encomendar ', coin(cost)));
+      }));
+      return h('div', { class: 'frow' + (locked ? ' locked' : '') },
+        h('div', { class: 'row' },
+          ZC.portrait(f.chef, false, 64),
+          h('div', { class: 'info' }, h('b', {}, f.name), h('small', {}, f.bio),
+            h('small', {}, locked ? `Aceita amizade no nível ${f.lvl}` : mine ? `Amigo desde o minuto ${Math.round(st.since / 60)} · ${st.visits || 0} visitas · ${st.gifts || 0} pedidos atendidos` : 'Ainda não é seu amigo')),
+          h('div', { class: 'acts' },
+            !mine ? h('button', { class: 'btn buy', disabled: locked, onclick: () => { ZC.addFriend(f); again(f.id); } }, 'Adicionar amigo') : [
+              h('button', { class: 'btn', onclick: () => { ZC.closeModal(); ZC.beginVisit(f); } }, 'Visitar o café'),
+              h('button', { class: 'btn' + (open === f.id ? ' on' : ''), onclick: () => again(open === f.id ? null : f.id) }, 'Encomendar prato')])),
+        mine && open === f.id ? orders : null);
+    };
+    const orderRows = s.orders.map(o => {
+      const R = ZC.RECIPES[o.r], f = ZC.friendOf(o.f);
+      return h('div', { class: 'orow' }, ZC.foodThumb(o.r, 40), h('div', { class: 'oinfo' }, h('b', {}, `${R.name} de ${f.name}`), h('small', {}, `Chega em ${fmtTime(Math.ceil(o.left))}. Vai para a geladeira.`),
+        h('div', { class: 'ebar', style: 'max-width:none' }, h('i', { style: `width:${Math.min(100, 100 * (1 - o.left / o.total))}%;background:#98e468` }))));
+    });
+    const reqRows = s.requests.map(q => {
+      const R = ZC.RECIPES[q.r], f = ZC.friendOf(q.f), have = ZC.stockOf(q.r), ok = have >= q.n;
+      return h('div', { class: 'orow' }, ZC.foodThumb(q.r, 40),
+        h('div', { class: 'oinfo' }, h('b', {}, `${f.name} quer ${q.n} porções de ${R.name}`),
+          h('small', {}, h('span', {}, 'Prêmio: ', coin(q.reward.coins), ` e ${q.reward.xp} XP · prazo ${fmtTime(Math.ceil(q.left))} · nos balcões: ${have}/${q.n}`))),
+        h('button', { class: 'btn buy', disabled: !ok, title: ok ? '' : 'Cozinhe e deixe a comida no balcão', onclick: () => { const why = ZC.deliverRequest(q); if (why) ZC.toast(why, 'bad'); again(); } }, 'Entregar'));
+    });
+    ZC.openModal('Amigos', h('div', {},
+      h('p', { class: 'hint' }, 'Não há outros jogadores neste jogo: os amigos são cafés vizinhos. Visite, encomende pratos (chegam na sua geladeira, e uma receita que você não conhece pode ser estudada) e atenda os pedidos deles com a comida do seu balcão.'),
+      s.requests.length ? [h('h3', {}, 'Pedidos dos amigos'), h('div', { class: 'list' }, ...reqRows)] : null,
+      s.orders.length ? [h('h3', {}, `Encomendas a caminho (${s.orders.length}/${F.orderMax})`), h('div', { class: 'list' }, ...orderRows)] : null,
+      h('h3', {}, 'Cafés vizinhos'), h('div', { class: 'list' }, ...ZC.FRIENDS.map(frow))), { cls: 'friendspanel' });
+  };
+
+  // ---------- chef ----------
+  ZC.openChefPicker = function (first) {
+    const s = ZC.state;
+    const cards = ZC.CHEF_ORDER.map(id => {
+      const c = ZC.CHEFS[id];
+      return h('button', { class: 'chefcard' + (s.chefId === id && s.chefChosen ? ' on' : ''), onclick: () => {
+        ZC.setChef(id); ZC.closeModal();
+        if (!first) ZC.toast(`${c.name} assumiu a cozinha. ${c.bonus}`, 'good');
+      } }, ZC.portrait(c.sprite, false, 104), h('b', {}, c.name), h('small', {}, c.bonus));
+    });
+    ZC.openModal(first ? 'Escolha o seu chef' : 'Trocar de chef', h('div', {},
+      h('p', { class: 'hint' }, first ? 'Ele toca o café com você e não se cansa de trabalhar. Cada chef dá um bônus diferente; só o bônus do chef em serviço vale, e você pode trocar quando quiser.' : 'Só o bônus do chef escolhido vale. Trocar não custa nada e não acumula bônus.'),
+      h('div', { class: 'chefgrid' }, ...cards)), { noClose: !!first, cls: 'chefpanel', onClose: first ? () => { ZC.openMenu(); } : null });
+  };
+
   // ---------- reputation ----------
   ZC.openReputation = function () {
-    const s = ZC.state, r = s.rep, b = r.bonus && r.bonus.left > 0 ? r.bonus : null, perks = ZC.nextLevelPerks();
+    const s = ZC.state, r = Object.assign({}, s.rep, { cur: s.review.cur, done: s.review.done }), b = r.bonus && r.bonus.left > 0 ? r.bonus : null, perks = ZC.nextLevelPerks();
     const amb = ZC.ambience(), S = ZC.CFG.service;
     const log = r.log.slice().reverse().map(e => h('div', { class: 'replog ' + (e.d >= 0 ? 'up' : 'down') },
       h('b', {}, (e.d >= 0 ? '+' : '') + e.d.toFixed(2)), h('span', {}, e.why + (e.n > 1 ? ` (${e.n}x)` : ''))));
     ZC.openModal('Reputação', h('div', { class: 'rep' },
       h('p', { class: 'big' }, starRow(Math.round(ZC.rating()), 26), ` ${ZC.rating().toFixed(1)} de 5`),
       h('p', {}, h('b', {}, 'Reputação do serviço: '), r.score.toFixed(1), '. Sobe com clientes servidos depressa; cai com demora, falta de comida, café lotado e surtos de zumbis famintos. Mais estrelas trazem clientes com mais frequência e visitantes especiais.'),
+      r.cur ? h('div', { class: 'reviewbox' }, h('b', {}, 'Crítico no café: '), `${r.cur.text} (${Math.min(r.cur.goal, ZC.reviewProgress(r.cur))}/${r.cur.goal}) em ${fmtTime(Math.ceil(r.cur.left))}. Cumprindo, ele empresta meia estrela por ${Math.round(ZC.CFG.review.reward.time / 60)} min.`)
+        : h('p', {}, h('b', {}, 'Críticos: '), `um crítico gastronômico aparece de tempos em tempos com uma tarefa. Elogios até agora: ${r.done || 0}.`),
       b ? h('p', {}, h('b', {}, 'Estrela temporária: '), `+${b.stars} (${b.why}), acaba em ${fmtTime(Math.ceil(b.left))}. Só uma vale por vez.`) : h('p', {}, h('b', {}, 'Estrela temporária: '), 'nenhuma agora. Um Crítico Gastronômico bem servido empresta meia estrela por alguns minutos.'),
       h('p', {}, h('b', {}, 'Nível do café: '), `${s.level} (permanente, não cai com atendimento ruim).` + (perks.length ? ` Próximo nível libera: ${perks.join(', ')}.` : '')),
       h('p', {}, h('b', {}, 'Ambiente: '), `${amb.toFixed(1)} de 5, vem da decoração e dos móveis colocados. Paciência dos clientes: ${Math.round(S.patienceBase + amb * S.patiencePerAmbience)}s.`),
@@ -440,7 +508,7 @@
     const targets = ZC.RAIDS.map(tg => {
       const locked = s.level < tg.lvl, wait = Math.max(0, Math.ceil((s.raidReady[tg.id] || 0) - s.clock)), D = ZC.RECIPES[tg.dish], isNew = !ZC.knows(tg.dish);
       return h('div', { class: 'row' + (locked ? ' locked' : '') },
-        h('div', { class: 'foes' }, ...tg.enemies.slice(0, 5).map((e, i) => ZC.portrait(e, false, i ? 40 : 52))),
+        h('div', { class: 'foes' }, ...tg.enemies.slice(0, 5).map((e, i) => ZC.portrait(ZC.raidLook(tg, i), false, i ? 40 : 52))),
         h('div', { class: 'info' }, h('b', {}, tg.name),
           h('small', {}, `Nível ${tg.lvl} · chefe ${ZC.UNITS[tg.enemies[0]].name} + ${tg.enemies.length - 1} ${tg.enemies.length - 1 === 1 ? 'funcionário' : 'funcionários'}`),
           h('small', {}, locked ? `Libera no nível ${tg.lvl}` : h('span', {}, 'Vencendo o chefe: ', coin(`${tg.coins[0]}-${tg.coins[1]}`), ' ', tox(tg.toxin), ` · ${tg.xp} XP`)),

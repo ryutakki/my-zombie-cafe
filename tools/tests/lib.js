@@ -9,7 +9,7 @@ exports.open = async function (opts = {}) {
   p.on('console', m => { if (m.type() === 'error') errs.push('console: ' + m.text()); });
   await p.goto('http://localhost:5173/');
   await p.waitForFunction(() => window.ZC && ZC.runtimeReady, null, { timeout: 20000 });
-  await p.evaluate(() => { if (ZC.modalOpen) ZC.closeModal(); window.__toasts = []; const t = ZC.toast; ZC.toast = (m, k) => { window.__toasts.push(m); t(m, k); }; });
+  await p.evaluate(() => { if (!ZC.state.chefChosen) ZC.setChef('classico'); for (let i = 0; i < 3 && ZC.modalOpen; i++) ZC.closeModal(); window.__toasts = []; const t = ZC.toast; ZC.toast = (m, k) => { window.__toasts.push(m); t(m, k); }; });
   return { b, ctx, p, errs };
 };
 let pass = 0, fail = 0;

@@ -97,7 +97,37 @@ window.ZC = window.ZC || {};
       reviveToxin: 1,             // toxin to bring it back at once
     },
 
+    // ---- critics: a timed task that lends temporary stars (stage 6). Only tasks the player's café can do are offered. ----
+    review: {
+      first: 150,                 // session seconds before the first critic, and only once a few customers were served
+      every: 300,                 // session seconds between critics
+      reward: { stars: 0.5, time: 240 },
+    },
+
+    // ---- friends (stage 6): NPC cafés that stand in for the social layer. There is no server. ----
+    friends: {
+      orderMax: 3,                // food orders in progress at once
+      orderCost: 1.5,             // price of an ordered batch, times the recipe cost
+      orderTime: 0.6,             // delivery time, times the recipe time (never under 30 s)
+      requestEvery: [200, 320],   // session seconds between requests from a friend
+      requestMax: 2,              // open requests at once
+      requestTime: 600,           // seconds a friend waits for the dish
+      rewardPerPortion: 1.6,      // coins per portion delivered, times the recipe price
+    },
+
     // ---- daily return ----
     daily: { trigger: 'cook' },   // edition: "Frequent Fryer" rewards cooking on the day, not opening the game
   };
+
+  // The player's chef. One chef is active at a time and its bonus applies to the whole café (never stacked).
+  // Every bonus is a proposal of this game. The chef never gets tired from work in the café (CFG.energy.chefDrains).
+  ZC.CHEFS = {
+    classico: { sprite: 'c_classico', name: 'Chef Bigodes', bonus: 'Vende cada prato 5% mais caro.', fx: { price: 1.05 } },
+    mulher: { sprite: 'c_mulher', name: 'Chef Marisa', bonus: 'Cozinha 12% mais depressa.', fx: { cook: 1.12 } },
+    veterano: { sprite: 'c_veterano', name: 'Chef Seu Zé', bonus: 'A comida pronta demora 30% mais para estragar.', fx: { spoil: 1.3 } },
+    barbudo: { sprite: 'c_barbudo', name: 'Chef Tião', bonus: 'Ganha 15% mais XP ao levar um lote ao balcão.', fx: { xp: 1.15 } },
+    jovem: { sprite: 'c_jovem', name: 'Chef Luna', bonus: 'Os clientes esperam 12% mais.', fx: { patience: 1.12 } },
+  };
+  ZC.CHEF_ORDER = ['classico', 'mulher', 'veterano', 'barbudo', 'jovem'];
+  ZC.chefFx = k => { const c = ZC.state && ZC.CHEFS[ZC.state.chefId]; return (c && c.fx[k]) || 1; };
 })();

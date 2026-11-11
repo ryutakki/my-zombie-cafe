@@ -33,8 +33,53 @@ window.ZC = window.ZC || {};
   ZC.MASTERY = [1, 5, 15, 40, 100];
   ZC.masteryCount = rid => (ZC.state && ZC.state.mastery && ZC.state.mastery[rid]) || 0;
   ZC.masteryStars = rid => ZC.MASTERY.filter(n => ZC.masteryCount(rid) >= n).length;
-  ZC.priceOf = rid => Math.max(1, Math.round(ZC.RECIPES[rid].price * (1 + 0.15 * ZC.masteryStars(rid))));
-  ZC.spoilTime = r => Math.max(ZC.CFG.kitchen.spoilMin, r.time * ZC.CFG.kitchen.spoilFactor);
+  // ---------- recipe variants (stage 6) ----------
+  // The nine modifiers of the classic game, kept as DATA applied to a base recipe: one kitchen, no nine separate recipes.
+  // The percentages are proposals of this game (the original's are not known). A variant is unlocked per recipe, for good,
+  // by cooking that recipe `count` times (and the variant it `needs`): unlocking one never unlocks another.
+  ZC.RVAR = {
+    quick:   { name: 'Rápida',        tag: 'rápida',        count: 3,  fx: { time: 0.7, cost: 1.1 },                 color: '#6fd6ff', desc: 'Prepara em 70% do tempo, custa 10% mais.' },
+    vquick:  { name: 'Muito Rápida',  tag: 'muito rápida',  count: 10, needs: 'quick', fx: { time: 0.45, cost: 1.25 },   color: '#3aa8ff', desc: 'Prepara em 45% do tempo, custa 25% mais.' },
+    spicy:   { name: 'Picante',       tag: 'picante',       count: 5,  fx: { xp: 1.5, time: 1.1 },                    color: '#ff8a4a', desc: '50% mais XP, demora 10% mais.' },
+    vspicy:  { name: 'Muito Picante', tag: 'muito picante', count: 15, needs: 'spicy', fx: { xp: 2.2, time: 1.25, cost: 1.1 }, color: '#e8452c', desc: 'Mais que o dobro de XP, demora 25% mais, custa 10% mais.' },
+    fancy:   { name: 'Fina',          tag: 'fina',          count: 8,  fx: { cost: 1.3, price: 1.28 },                color: '#ffd45a', desc: 'Custa 30% mais e cada porção vende 28% mais caro.' },
+    vfancy:  { name: 'Muito Fina',    tag: 'muito fina',    count: 20, needs: 'fancy', fx: { cost: 1.7, price: 1.6 },    color: '#fff0a0', desc: 'Custa 70% mais e cada porção vende 60% mais caro.' },
+    bulk:    { name: 'Em Lote',       tag: 'em lote',       count: 12, fx: { servings: 1.5, cost: 1.4, time: 1.3 },    color: '#b58cff', desc: '50% mais porções, custa 40% mais, demora 30% mais.' },
+    fresh:   { name: 'Fresca',        tag: 'fresca',        count: 6,  fx: { spoil: 2, cost: 1.15 },                  color: '#7fe0a0', desc: 'Demora o dobro para estragar, custa 15% mais.' },
+    frozen:  { name: 'Congelada',     tag: 'congelada',     count: 10, fx: { time: 1.5, cost: 0.7 },                  color: '#bfeaff', desc: 'Demora 50% mais e custa 30% menos.' },
+  };
+  ZC.RVAR_ORDER = ['quick', 'vquick', 'spicy', 'vspicy', 'fancy', 'vfancy', 'bulk', 'fresh', 'frozen'];
+  // every dish that can exist: a base recipe ('grogue') or one of its variants ('grogue:fancy'). Stored food always carries this key.
+  ZC.DISHES = {};
+  for (const [rid, R] of Object.entries(ZC.RECIPES)) {
+    ZC.DISHES[rid] = Object.assign({ key: rid, base: rid, v: null, spoilMul: 1 }, R);
+    for (const [vid, V] of Object.entries(ZC.RVAR)) {
+      const f = V.fx;
+      ZC.DISHES[rid + ':' + vid] = Object.assign({}, R, { key: rid + ':' + vid, base: rid, v: vid, name: R.name + ' ' + V.tag, spoilMul: f.spoil || 1,
+        cost: Math.max(1, Math.round(R.cost * (f.cost || 1))), time: Math.max(5, Math.round(R.time * (f.time || 1))), servings: Math.max(1, Math.round(R.servings * (f.servings || 1))),
+        price: Math.max(1, Math.round(R.price * (f.price || 1))), xp: Math.max(1, Math.round(R.xp * (f.xp || 1))) });
+    }
+  }
+  ZC.dishKey = (rid, v) => (v ? rid + ':' + v : rid);
+  ZC.variantOwned = (rid, v) => !!(ZC.state.variants && ZC.state.variants[rid] && ZC.state.variants[rid][v]);
+  ZC.variantNeed = (rid, v) => {       // null when the variant is ready to unlock, otherwise what is missing
+    const V = ZC.RVAR[v], n = ZC.masteryCount(rid);
+    if (V.needs && !ZC.variantOwned(rid, V.needs)) return `Antes, desbloqueie a ${ZC.RVAR[V.needs].name.toLowerCase()}.`;
+    if (n < V.count) return `Cozinhe esta receita ${V.count - n} ${V.count - n > 1 ? 'vezes' : 'vez'} para liberar.`;
+    return null;
+  };
+  // called after every cooked batch of a recipe: unlocks, once and for good, whatever has just been earned
+  ZC.checkVariants = function (rid) {
+    const s = ZC.state; s.variants = s.variants || {};
+    for (const v of ZC.RVAR_ORDER) {
+      if (ZC.variantOwned(rid, v) || ZC.variantNeed(rid, v)) continue;
+      (s.variants[rid] = s.variants[rid] || {})[v] = 1;
+      ZC.toast(`Nova variante de ${ZC.RECIPES[rid].name}: ${ZC.RVAR[v].name}! ${ZC.RVAR[v].desc}`, 'level');
+    }
+  };
+  // price of one portion today, with the mastery stars of the base recipe
+  ZC.priceOf = key => { const D = ZC.DISHES[key]; return Math.max(1, Math.round(D.price * (1 + 0.15 * ZC.masteryStars(D.base)))); };
+  ZC.spoilTime = r => Math.max(ZC.CFG.kitchen.spoilMin, r.time * ZC.CFG.kitchen.spoilFactor) * (r.spoilMul || 1);
   ZC.lootSource = rid => ZC.RAIDS.find(tg => tg.dish === rid);
 
   // ---------- furniture themes: each has table, chair, stove, fridge, sink and counter ----------
@@ -119,7 +164,10 @@ window.ZC = window.ZC || {};
     assassin: { name: 'Assassino', hp: 55, atk: 13, speed: 1.3 },
     pirate_leader: { name: 'Capitão', hp: 130, atk: 18, speed: 1.0 },
   };
-  ZC.HUMANS = ['robber', 'thug', 'assassin'];
+  ZC.HUMANS = ['robber', 'thug', 'assassin'];     // customer kinds: they decide the attributes of the zombie a customer would become
+  // How things look: customers and rival staff are drawn with the five human characters (the chefs), staff with the six zombies.
+  // A customer's kind (robber, thug...) is its profile; its look is just one of these pictures.
+  ZC.HUMAN_LOOKS = ['c_classico', 'c_mulher', 'c_veterano', 'c_barbudo', 'c_jovem'];
   ZC.unitName = (sprite, tint) => tint ? ZC.UNITS[sprite].name + ' Zumbi' : ZC.UNITS[sprite].name;
   ZC.ZOMBIE_NAMES = ['Bob Podre', 'Zé Caveira', 'Tonho Tripa', 'Dente-Solto', 'Barba Verde', 'Olho Mole',
     'Mofo', 'Chico Fedido', 'Lula Molenga', 'Bafo de Peixe', 'Costela', 'Gengiva', 'Rabugento', 'Unha Preta'];
@@ -149,6 +197,9 @@ window.ZC = window.ZC || {};
     { id: 'cidadela', dish: 'bolo', name: 'Cidadela Sombria', sign: 'CIDADELA', lvl: 18, enemies: ['pirate_leader', 'thug', 'robber', 'thug', 'assassin', 'robber'], coins: [10000, 13000], toxin: 18 },
     { id: 'trono', dish: 'banquete', name: 'Trono do Rei Pirata', sign: 'TRONO', lvl: 20, enemies: ['pirate_leader', 'thug', 'robber', 'assassin', 'thug', 'robber', 'thug'], coins: [15000, 20000], toxin: 25 },
   ];
+
+  // the picture of the i-th fighter of a rival café: 0 is the rival chef, the others are its staff
+  ZC.raidLook = (tg, i) => { const b = Math.max(0, ZC.RAIDS.indexOf(tg)); return ZC.HUMAN_LOOKS[(b + i) % ZC.HUMAN_LOOKS.length]; };
 
   // progression: level 20 is the cap for now; a slow curve (raids and recipes feed it)
   ZC.MAX_LEVEL = 20;

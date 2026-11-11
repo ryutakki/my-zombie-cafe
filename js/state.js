@@ -19,16 +19,16 @@
     const known = {};
     for (const [rid, r] of Object.entries(ZC.RECIPES)) if (r.learn === 'start') known[rid] = 1;
     return {
-      v: 3, clock: 0,
+      v: 3, clock: 0, chefId: 'classico', chefChosen: false,
       coins: 300, toxin: 3, xp: 0, level: 1,
       expansions: 0,
       cafe: { w: 9, h: 8, doorX: 4, floor: 'tabuas', wall: 'tijolo', wallSeg: {}, objects: objs, closed: false },
       owned: { floor: ['tabuas'], wall: ['tijolo'] },
       zombies: [
-        ZC.makeStaff('chef', { id: id++, sprite: 'pirate_leader', name: 'Chef', chef: true, role: 'cook' }),
+        ZC.makeStaff('chef', { id: id++, sprite: ZC.CHEFS.classico.sprite, name: ZC.CHEFS.classico.name, chef: true, role: 'cook' }),
         ZC.makeStaff('pirate_zombie', { id: id++, name: 'Bob Podre' }),   // one waiter: the second worker is the first customer you infect
       ],
-      known, fridge: [], pendingLoot: [],
+      known, fridge: [], pendingLoot: [], variants: {}, friends: {}, orders: [], requests: [], review: { cur: null, next: ZC.CFG.review.first, done: 0 },
       rep: { score: CFG.rep.start, bonus: null, log: [] },
       raidReady: {}, raid: null,
       stats: {}, missions: {}, mastery: {},
@@ -43,7 +43,7 @@
   function migrate(s) {
     s.v = 3; s.clock = 0;
     s.cafe.closed = false;
-    const staff = [ZC.makeStaff('chef', { id: s.nextId++, sprite: 'pirate_leader', name: 'Chef', chef: true, role: 'cook' })];
+    const staff = [ZC.makeStaff('chef', { id: s.nextId++, sprite: ZC.CHEFS.classico.sprite, name: ZC.CHEFS.classico.name, chef: true, role: 'cook' })];
     for (const o of s.zombies) {
       const type = ZC.PROFILES[o.sprite] ? o.sprite : 'pirate_zombie';
       const z = ZC.makeStaff(type, { id: o.id, name: o.name, sprite: o.sprite, tint: o.tint });
@@ -90,11 +90,20 @@
     if (!s || s.v !== 3) s = newGame();
     // defaults for fields added later
     if (!s.cafe.wallSeg) s.cafe.wallSeg = {};
-    for (const k of ['stats', 'missions', 'mastery', 'known', 'raidReady']) if (!s[k]) s[k] = {};
-    for (const k of ['fridge', 'pendingLoot', 'ledger']) if (!s[k]) s[k] = [];
+    for (const k of ['stats', 'missions', 'mastery', 'known', 'raidReady', 'variants', 'friends']) if (!s[k]) s[k] = {};
+    for (const k of ['fridge', 'pendingLoot', 'ledger', 'orders', 'requests']) if (!s[k]) s[k] = [];
+    if (!s.review) s.review = { cur: null, next: ZC.CFG.review.first, done: 0 };
     if (!s.daily) s.daily = { last: '', streak: 0 };
     if (!s.rep) s.rep = { score: CFG.rep.start, bonus: null, log: [] };
     if (s.clock == null) s.clock = 0;
+    // characters of older saves are redrawn with the animated ones; whoever was already playing keeps the default chef
+    if (!s.chefId || !ZC.CHEFS[s.chefId]) s.chefId = 'classico';
+    if (s.chefChosen == null) s.chefChosen = true;
+    for (const z of s.zombies) {
+      z.tint = false; if (!z.special) delete z.acc;
+      if (z.chef) { if (!ZC.isChar(z.sprite)) z.sprite = ZC.CHEFS[s.chefId].sprite; }
+      else if (!ZC.isChar(z.sprite)) z.sprite = (ZC.PROFILES[z.type] || ZC.PROFILES.pirate_zombie).sprite;
+    }
     ZC.state = s;
   };
 
@@ -150,6 +159,16 @@
     setTimeout(() => { writeLock(); location.reload(); }, 700);
   };
 
+  // the chef is picked once at the start and can be changed later; only the chosen one's bonus is active
+  ZC.setChef = function (id) {
+    const c = ZC.CHEFS[id], s = ZC.state, z = s.zombies.find(q => q.chef);
+    if (!c || !z) return false;
+    s.chefId = id; s.chefChosen = true; z.sprite = c.sprite; z.name = c.name;
+    const a = ZC.zombieActor && ZC.zombieActor(z.id); if (a) a.sprite = c.sprite;
+    ZC.save();
+    return true;
+  };
+
   ZC.resetGame = function () {
     try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
     ZC.state = newGame();
@@ -182,6 +201,7 @@
     s.mastery[rid] = (s.mastery[rid] || 0) + 1;
     const after = ZC.masteryStars(rid);
     if (after > before) ZC.toast(`Maestria de ${ZC.RECIPES[rid].name}: nível ${after}! Cada porção paga +15%.`, 'level');
+    ZC.checkVariants(rid);
   };
 
   // ---------- recipes: knowing one is permanent, and separate from owning food or being able to cook it ----------

@@ -6,7 +6,7 @@
   <title>Zombie Café — Protótipo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -26,6 +26,7 @@
     <button data-act="book" title="Receitas" aria-label="Receitas"><span class="bi" data-ic="book" data-px="34"></span>Receitas</button>
     <button data-act="zombies" title="Zumbis" aria-label="Zumbis"><span class="bi" data-ic="skull" data-px="34"></span>Zumbis</button>
     <button data-act="raid" class="hot" title="Invasão" aria-label="Invasão"><span class="bi" data-ic="bone" data-px="34"></span>Invasão</button>
+    <button data-act="friends" title="Amigos" aria-label="Amigos"><span class="bi" data-ic="note" data-px="34"></span>Amigos</button>
     <button data-act="missions" title="Missões" aria-label="Missões"><span class="bi" data-ic="scroll" data-px="34"></span>Missões<b id="missbadge" style="display:none"></b></button>
     <button data-act="menu" class="small" title="Menu"><span class="bi" data-ic="menu" data-px="26"></span></button>
   </div>
@@ -43,12 +44,13 @@
 
   <div id="loading">
     <h1>ZOMBIE CAFÉ</h1>
-    <p>protótipo</p>
+    <p>um café para os mortos</p>
     <div class="bar"><i></i></div>
   </div>
 
   <script src="js/config.js"></script>
   <script src="js/sprites-manifest.js"></script>
+  <script src="js/chars-manifest.js"></script>
   <script src="js/props-manifest.js"></script>
   <script src="js/data.js"></script>
   <script src="js/staff.js"></script>
@@ -61,6 +63,7 @@
   <script src="js/world.js"></script>
   <script src="js/specials.js"></script>
   <script src="js/cafe.js"></script>
+  <script src="js/social.js"></script>
   <script src="js/drag.js"></script>
   <script src="js/render.js"></script>
   <script src="js/raid.js"></script>

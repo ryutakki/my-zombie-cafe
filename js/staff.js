@@ -9,12 +9,12 @@ window.ZC = window.ZC || {};
   // str = damage in raids; hunger = fraction of energy below which it may attack a customer (lower is safer);
   // wear = how fast work tires it; recover = energy per second while resting.
   ZC.PROFILES = {
-    pirate_zombie: { name: 'Zumbi Comum', job: 'Equilibrado', energy: 100, speed: 1.0, tip: 0.30, str: 9, hunger: 0.15, wear: 1.0, recover: 0.9, desc: 'Faz de tudo um pouco, sem brilhar em nada.' },
-    robber: { name: 'Ladrão', job: 'Atendente ligeiro', energy: 80, speed: 1.25, tip: 0.50, str: 6, hunger: 0.18, wear: 1.1, recover: 1.0, desc: 'Rápido e bom de gorjeta, mas cansa cedo e bate fraco.' },
-    thug: { name: 'Brutamontes', job: 'Trabalhador resistente', energy: 140, speed: 0.85, tip: 0.15, str: 11, hunger: 0.10, wear: 0.8, recover: 0.7, desc: 'Aguenta turnos longos e pancada. Lento e ruim de gorjeta.' },
-    assassin: { name: 'Assassino', job: 'Lutador', energy: 90, speed: 1.15, tip: 0.10, str: 14, hunger: 0.25, wear: 1.2, recover: 0.9, desc: 'O melhor nas invasões. No salão rende pouco e fica faminto cedo.' },
-    pirate_leader: { name: 'Capitão', job: 'Anfitrião', energy: 105, speed: 1.0, tip: 0.45, str: 10, hunger: 0.15, wear: 1.0, recover: 0.8, desc: 'Carismático: ótimas gorjetas e luta razoável.' },
-    squidman: { name: 'Homem-Lula', job: 'Colosso', energy: 130, speed: 0.95, tip: 0.20, str: 13, hunger: 0.12, wear: 0.9, recover: 0.8, desc: 'Forte e resistente. Raro de aparecer.' },
+    pirate_zombie: { sprite: 'z_padrao', name: 'Zumbi Comum', job: 'Equilibrado', energy: 100, speed: 1.0, tip: 0.30, str: 9, hunger: 0.15, wear: 1.0, recover: 0.9, desc: 'Faz de tudo um pouco, sem brilhar em nada.' },
+    robber: { sprite: 'z_adolescente', name: 'Zumbi Adolescente', job: 'Atendente ligeiro', energy: 80, speed: 1.25, tip: 0.50, str: 6, hunger: 0.18, wear: 1.1, recover: 1.0, desc: 'Rápido e bom de gorjeta, mas cansa cedo e bate fraco.' },
+    thug: { sprite: 'z_grandalhao', name: 'Zumbi Grandalhão', job: 'Trabalhador resistente', energy: 140, speed: 0.85, tip: 0.15, str: 11, hunger: 0.10, wear: 0.8, recover: 0.7, desc: 'Aguenta turnos longos e pancada. Lento e ruim de gorjeta.' },
+    assassin: { sprite: 'z_careca', name: 'Zumbi Careca', job: 'Lutador', energy: 90, speed: 1.15, tip: 0.10, str: 14, hunger: 0.25, wear: 1.2, recover: 0.9, desc: 'O melhor nas invasões. No salão rende pouco e fica faminto cedo.' },
+    pirate_leader: { sprite: 'z_mulher', name: 'Zumbi Mulher', job: 'Anfitriã', energy: 105, speed: 1.0, tip: 0.45, str: 10, hunger: 0.15, wear: 1.0, recover: 0.8, desc: 'Carismática: ótimas gorjetas e luta razoável.' },
+    squidman: { sprite: 'z_idoso', name: 'Zumbi Idoso', job: 'Veterano', energy: 130, speed: 0.95, tip: 0.20, str: 13, hunger: 0.12, wear: 0.9, recover: 0.8, desc: 'Forte e teimoso, aguenta muito. Raro de aparecer.' },
     chef: { name: 'Chef', job: 'Dono do café', energy: 100, speed: 1.0, tip: 0.35, str: 8, hunger: 0, wear: 0, recover: 1, desc: 'Você. Não se cansa trabalhando no café e nunca vai para a reserva.' },
   };
   ZC.ROLES = { serve: 'Atender', cook: 'Cozinhar', rest: 'Descansar', reserve: 'Reserva' };
@@ -26,9 +26,9 @@ window.ZC = window.ZC || {};
   };
   // o: { id, name, sprite, tint, st, chef, role }
   ZC.makeStaff = function (type, o = {}) {
-    const z = { id: o.id, type, sprite: o.sprite || type, tint: o.tint || false, name: o.name || ZC.PROFILES[type].name,
+    const z = { id: o.id, type, sprite: o.sprite || ZC.PROFILES[type].sprite || type, tint: false, name: o.name || ZC.PROFILES[type].name,
       st: o.st || ZC.rollStats(type), lvl: 1, xp: 0, role: o.role || 'serve' };
-    if (o.chef) { z.chef = true; z.acc = 'chef'; }
+    if (o.chef) z.chef = true;
     z.energy = ZC.zMax(z);
     return z;
   };
